@@ -1,15 +1,12 @@
 use axum::{
-    extract::{Extension, Path, Request, State},
+    extract::{Path, Request, State},
     http::StatusCode,
     routing::{delete, get, post},
     Json, Router, ServiceExt,
 };
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::sync::{
-    atomic::{AtomicU16, Ordering::Relaxed},
-    Arc, OnceLock,
-};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
@@ -42,7 +39,8 @@ async fn main() {
         // .route("/new-state", get(handler))
         .route("/hello/{visitor}", get(greet_visitor))
         .route("/bye", delete(say_goodbye))
-        // .route("/create-user", get(create_user(_, json)))
+        .route("/users", get(list_users))
+        .route("/create-user", post(create_user))
         // .with_state(app_state)
         .with_state(user_state);
     // .with_state(state)
@@ -92,26 +90,28 @@ async fn say_goodbye() -> String {
     "Goodbye".to_string()
 }
 
-// async fn create_user(
-//     State(app_state): &State<Arc<Mutex<&mut AppState>>>,
-//     // this argument tells axum to parse the request body
-//     // as JSON into a `CreateUser` type
-//     Json(payload): Json<CreateUser>,
-// ) -> StatusCode {
-//     // insert your application logic here
-//     let new_user = User {
-//         id: 1337,
-//         username: payload.username,
-//     };
+async fn create_user(
+    State(user_state): State<UserState>,
+    Json(payload): Json<CreateUser>,
+) -> StatusCode {
+    let new_user = User {
+        id: 1337,
+        username: payload.username,
+    };
 
-//     let mut state = app_state.lock().await;
+    let mut users = user_state.users.lock().await;
 
-//     state.users.push(new_user);
+    users.push(new_user);
 
-//     // this will be converted into a JSON response
-//     // with a status code of `201 Created`
-//     StatusCode::CREATED
-// }
+    println!("Users: {:?}", *users);
+
+    StatusCode::CREATED
+}
+
+async fn list_users(State(user_state): State<UserState>) -> (StatusCode, Json<Vec<User>>) {
+    let users = user_state.users.lock().await;
+    (StatusCode::OK, Json(users.to_vec()))
+}
 
 // the input to our `create_user` handler
 #[derive(Deserialize)]
@@ -120,7 +120,7 @@ struct CreateUser {
 }
 
 // the output to our `create_user` handler
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 struct User {
     id: u64,
     username: String,
