@@ -8,7 +8,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::sync::{
     atomic::{AtomicU16, Ordering::Relaxed},
-    Arc,
+    Arc, OnceLock,
 };
 use tokio::sync::Mutex;
 use tower_http::normalize_path::NormalizePathLayer;
@@ -21,19 +21,9 @@ struct Greeting {
     visits: u16,
 }
 
-impl Greeting {
-    fn new(greeting: &str, visitor: String, visits: u16) -> Self {
-        Greeting {
-            greeting: greeting.to_string(),
-            visitor,
-            visits,
-        }
-    }
-}
-
-struct AppState {
-    number_of_visits: AtomicU16,
-    users: Vec<User>,
+#[derive(Clone)]
+struct UserState {
+    users: Arc<Mutex<Vec<User>>>,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -41,20 +31,21 @@ async fn main() {
     // needed so that logs are actually printed to the console
     env_logger::init();
 
-    // Create a shared state for our application. We use an Arc so that we clone the pointer to the state and
-    // not the state itself. The AtomicU16 is a thread-safe integer that we use to keep track of the number of visits.
-    let app_state = Arc::new(Mutex::new(AppState {
-        number_of_visits: AtomicU16::new(1),
-        users: vec![],
-    }));
+    let user_state = UserState {
+        users: Arc::new(Mutex::new(vec![])),
+    };
 
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
+        // .route("/new-state", get(handler))
         .route("/hello/{visitor}", get(greet_visitor))
         .route("/bye", delete(say_goodbye))
-        .with_state(app_state);
+        // .route("/create-user", get(create_user(_, json)))
+        // .with_state(app_state)
+        .with_state(user_state);
+    // .with_state(state)
     // `POST /users` goes to `create_user`
     // .route("/users", post(create_user))
 
@@ -79,14 +70,19 @@ async fn root() -> &'static str {
 /// Extract the `visitor` path parameter and use it to greet the visitor.
 /// We also use the `State` extractor to access the shared `AppState` and increment the number of visits.
 /// We use `Json` to automatically serialize the `Greeting` struct to JSON.
-async fn greet_visitor(
-    State(app_state): State<Arc<Mutex<AppState>>>,
-    Path(visitor): Path<String>,
-) -> Json<Greeting> {
-    let state = app_state.lock().await;
+async fn greet_visitor(State(user_state): State<UserState>, Path(visitor): Path<String>) {
+    let new_user = User {
+        id: 1337,
+        username: visitor,
+    };
 
-    let visits = state.number_of_visits.fetch_add(1, Relaxed);
-    Json(Greeting::new("Hello", visitor, visits))
+    let mut users = user_state.users.lock().await;
+
+    users.push(new_user);
+
+    println!("Users: {:?}", *users);
+
+    // Json(Greeting::new("Hello", "dd".to_string(), 10 as u16))
 }
 
 /// Say goodbye to the visitor.
@@ -97,24 +93,24 @@ async fn say_goodbye() -> String {
 }
 
 // async fn create_user(
-//     State(app_state): State<Arc<AppState>>,
+//     State(app_state): &State<Arc<Mutex<&mut AppState>>>,
 //     // this argument tells axum to parse the request body
 //     // as JSON into a `CreateUser` type
 //     Json(payload): Json<CreateUser>,
-// ) -> (StatusCode, Json<User>) {
+// ) -> StatusCode {
 //     // insert your application logic here
-//     let user = User {
+//     let new_user = User {
 //         id: 1337,
 //         username: payload.username,
 //     };
 
-//     // let users = &app_state.clone().users;
+//     let mut state = app_state.lock().await;
 
-//     // users.push(user);
+//     state.users.push(new_user);
 
-//     // // this will be converted into a JSON response
-//     // // with a status code of `201 Created`
-//     // (StatusCode::CREATED, Json(user))
+//     // this will be converted into a JSON response
+//     // with a status code of `201 Created`
+//     StatusCode::CREATED
 // }
 
 // the input to our `create_user` handler
@@ -124,7 +120,7 @@ struct CreateUser {
 }
 
 // the output to our `create_user` handler
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct User {
     id: u64,
     username: String,
