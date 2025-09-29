@@ -6,7 +6,11 @@ use axum::{
 };
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::sync::{atomic::AtomicU16, atomic::Ordering::Relaxed, Arc};
+use std::sync::{
+    atomic::{AtomicU16, Ordering::Relaxed},
+    Arc,
+};
+use tokio::sync::Mutex;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
 
@@ -29,6 +33,7 @@ impl Greeting {
 
 struct AppState {
     number_of_visits: AtomicU16,
+    users: Vec<User>,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -38,21 +43,20 @@ async fn main() {
 
     // Create a shared state for our application. We use an Arc so that we clone the pointer to the state and
     // not the state itself. The AtomicU16 is a thread-safe integer that we use to keep track of the number of visits.
-    let app_state = Arc::new(AppState {
+    let app_state = Arc::new(Mutex::new(AppState {
         number_of_visits: AtomicU16::new(1),
-    });
+        users: vec![],
+    }));
 
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
-                .route("/hello/{visitor}", get(greet_visitor))
-                .route("/bye", delete(say_goodbye))
-                .with_state(app_state)
-
-        // `POST /users` goes to `create_user`
-        // .route("/users", post(create_user))
-        ;
+        .route("/hello/{visitor}", get(greet_visitor))
+        .route("/bye", delete(say_goodbye))
+        .with_state(app_state);
+    // `POST /users` goes to `create_user`
+    // .route("/users", post(create_user))
 
     // two lines below an their respective improts are necessary to remove trailing slashes from URLs (otherwise routes with and without them are treated as separate)
     // see https://github.com/tokio-rs/axum/issues/2659
@@ -76,10 +80,12 @@ async fn root() -> &'static str {
 /// We also use the `State` extractor to access the shared `AppState` and increment the number of visits.
 /// We use `Json` to automatically serialize the `Greeting` struct to JSON.
 async fn greet_visitor(
-    State(app_state): State<Arc<AppState>>,
+    State(app_state): State<Arc<Mutex<AppState>>>,
     Path(visitor): Path<String>,
 ) -> Json<Greeting> {
-    let visits = app_state.number_of_visits.fetch_add(1, Relaxed);
+    let state = app_state.lock().await;
+
+    let visits = state.number_of_visits.fetch_add(1, Relaxed);
     Json(Greeting::new("Hello", visitor, visits))
 }
 
@@ -90,21 +96,26 @@ async fn say_goodbye() -> String {
     "Goodbye".to_string()
 }
 
-async fn create_user(
-    // this argument tells axum to parse the request body
-    // as JSON into a `CreateUser` type
-    Json(payload): Json<CreateUser>,
-) -> (StatusCode, Json<User>) {
-    // insert your application logic here
-    let user = User {
-        id: 1337,
-        username: payload.username,
-    };
+// async fn create_user(
+//     State(app_state): State<Arc<AppState>>,
+//     // this argument tells axum to parse the request body
+//     // as JSON into a `CreateUser` type
+//     Json(payload): Json<CreateUser>,
+// ) -> (StatusCode, Json<User>) {
+//     // insert your application logic here
+//     let user = User {
+//         id: 1337,
+//         username: payload.username,
+//     };
 
-    // this will be converted into a JSON response
-    // with a status code of `201 Created`
-    (StatusCode::CREATED, Json(user))
-}
+//     // let users = &app_state.clone().users;
+
+//     // users.push(user);
+
+//     // // this will be converted into a JSON response
+//     // // with a status code of `201 Created`
+//     // (StatusCode::CREATED, Json(user))
+// }
 
 // the input to our `create_user` handler
 #[derive(Deserialize)]
