@@ -13,22 +13,18 @@ use tokio::sync::Mutex;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
 
+mod entities;
+use entities::user::UserClean;
+
+use crate::entities::{
+    note::NoteModel,
+    user::{CreateUser, UserModel},
+};
+
 #[derive(Clone)]
 struct AppState {
-    users: Arc<Mutex<Vec<User>>>,
+    users: Arc<Mutex<Vec<UserClean>>>,
     pg_pool: PgPool,
-}
-
-// For sqlx
-#[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
-#[allow(non_snake_case)] // TODO: why though? it's all snaky anyway
-pub struct NoteModel {
-    pub id: String,
-    pub title: String,
-    pub content: String,
-    pub is_published: i8, // BOOLEAN in MySQL is TINYINT(1) so we can use i8 to retrieve the record and later we can parse to Boolean
-    pub created_at: Option<chrono::NaiveDateTime>,
-    // pub updated_at: Option<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>>,
 }
 
 // const POSTGRES_URL: &str = "postgres://postgres:password@localhost:15432/postgres";
@@ -66,9 +62,10 @@ async fn main() {
         // `GET /` goes to `root`
         .route("/", get(root))
         // .route("/new-state", get(handler))
-        .route("/in-memory/users", get(list_users))
+        .route("/in-memory/users", get(list_users_inmem))
         .route("/notes", get(list_notes))
-        .route("/in-memory/create-user", post(create_user))
+        .route("/users", get(list_users))
+        // .route("/in-memory/create-user", post(create_user))
         // .with_state(app_state)
         .with_state(user_state);
     // .with_state(state)
@@ -93,23 +90,23 @@ async fn root() -> &'static str {
     "Hello, World!"
 }
 
-async fn create_user(
-    State(user_state): State<AppState>,
-    Json(payload): Json<CreateUser>,
-) -> StatusCode {
-    let new_user = User {
-        id: 1337,
-        username: payload.username,
-    };
+// async fn create_user(
+//     State(user_state): State<AppState>,
+//     Json(payload): Json<CreateUser>,
+// ) -> StatusCode {
+//     let new_user = UserClean {
+//         id: 1337,
+//         username: payload.username,
+//     };
 
-    let mut users = user_state.users.lock().await;
+//     let mut users = user_state.users.lock().await;
 
-    users.push(new_user);
+//     users.push(new_user);
 
-    println!("Users: {:?}", *users);
+//     println!("Users: {:?}", *users);
 
-    StatusCode::CREATED
-}
+//     StatusCode::CREATED
+// }
 
 type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, String)>;
 
@@ -131,20 +128,27 @@ async fn list_notes(State(state): State<AppState>) -> ApiResult<Vec<NoteModel>> 
     }
 }
 
-async fn list_users(State(user_state): State<AppState>) -> (StatusCode, Json<Vec<User>>) {
+async fn list_users(State(state): State<AppState>) -> ApiResult<Vec<UserClean>> {
+    let query_result = sqlx::query_as!(UserClean, r#"SELECT id, username FROM users ORDER by id"#)
+        .fetch_all(&state.pg_pool)
+        .await;
+
+    match query_result {
+        Err(e) => {
+            let error_response = serde_json::json!({
+            "status": "error",
+            "message": format!("Database error: { }", e),
+            })
+            .to_string();
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response))
+        }
+        Ok(users) => Ok((StatusCode::OK, Json(users))),
+    }
+}
+
+async fn list_users_inmem(
+    State(user_state): State<AppState>,
+) -> (StatusCode, Json<Vec<UserClean>>) {
     let users = user_state.users.lock().await;
     (StatusCode::OK, Json(users.to_vec()))
-}
-
-// the input to our `create_user` handler
-#[derive(Deserialize)]
-struct CreateUser {
-    username: String,
-}
-
-// the output to our `create_user` handler
-#[derive(Serialize, Debug, Clone)]
-struct User {
-    id: u64,
-    username: String,
 }
