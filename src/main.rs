@@ -1,12 +1,12 @@
 use axum::{
-    extract::{Request, State},
+    extract::{Path, Request, State},
     http::StatusCode,
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router, ServiceExt,
 };
 use dotenv::dotenv;
-use log::{error, info};
-use serde::{Deserialize, Serialize};
+use log::{debug, error, info};
+use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,16 +16,16 @@ use tower_layer::Layer;
 mod entities;
 use entities::user::UserClean;
 
-use crate::entities::{
-    note::NoteModel,
-    user::{CreateUser, UserModel},
-};
+use crate::entities::{note::NoteModel, user::CreateUser};
 
 #[derive(Clone)]
 struct AppState {
     users: Arc<Mutex<Vec<UserClean>>>,
     pg_pool: PgPool,
 }
+
+type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, String)>;
+type EmptyApiResult = Result<StatusCode, (StatusCode, String)>;
 
 // const POSTGRES_URL: &str = "postgres://postgres:password@localhost:15432/postgres";
 
@@ -66,6 +66,7 @@ async fn main() {
         .route("/notes", get(list_notes))
         .route("/users/list", get(list_users))
         .route("/users/create", post(create_user))
+        .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
         // .route("/in-memory/create-user", post(create_user))
         // .with_state(app_state)
         .with_state(user_state);
@@ -73,7 +74,7 @@ async fn main() {
     // `POST /users` goes to `create_user`
     // .route("/users", post(create_user))
 
-    // two lines below an their respective improts are necessary to remove trailing slashes from URLs (otherwise routes with and without them are treated as separate)
+    // two lines below an their respective imports are necessary to remove trailing slashes from URLs (otherwise routes with and without them are treated as separate)
     // see https://github.com/tokio-rs/axum/issues/2659
     let app = NormalizePathLayer::trim_trailing_slash().layer(app);
     let app = ServiceExt::<Request>::into_make_service(app);
@@ -119,7 +120,44 @@ async fn create_user(
     }
 }
 
-type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, String)>;
+// the input to our `create_user` handler
+#[derive(Deserialize, sqlx::FromRow)]
+pub struct JustId {
+    pub id: String,
+}
+
+async fn delete_user_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> EmptyApiResult {
+    debug!("delete by id called");
+    debug!("{}", id);
+
+    let query_result = sqlx::query!(r#"DELETE FROM users WHERE id = $1"#, id)
+        .execute(&state.pg_pool)
+        .await;
+
+    match query_result {
+        Err(e) => {
+            let error_response = serde_json::json!({
+            "status": "error",
+            "message": format!("Database error: { }", e),
+            })
+            .to_string();
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response))
+        }
+        Ok(result_info) => {
+            if result_info.rows_affected() == 0 {
+                Err((
+                    StatusCode::NOT_ACCEPTABLE,
+                    "User with given ID does not exist - possibly already deleted".to_string(),
+                ))
+            } else {
+                Ok(StatusCode::NO_CONTENT)
+            }
+        }
+    }
+}
 
 async fn list_notes(State(state): State<AppState>) -> ApiResult<Vec<NoteModel>> {
     let query_result = sqlx::query_as!(NoteModel, r#"SELECT * FROM notes ORDER by id"#)
