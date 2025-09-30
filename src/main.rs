@@ -64,7 +64,8 @@ async fn main() {
         // .route("/new-state", get(handler))
         .route("/in-memory/users", get(list_users_inmem))
         .route("/notes", get(list_notes))
-        .route("/users", get(list_users))
+        .route("/users/list", get(list_users))
+        .route("/users/create", post(create_user))
         // .route("/in-memory/create-user", post(create_user))
         // .with_state(app_state)
         .with_state(user_state);
@@ -90,23 +91,33 @@ async fn root() -> &'static str {
     "Hello, World!"
 }
 
-// async fn create_user(
-//     State(user_state): State<AppState>,
-//     Json(payload): Json<CreateUser>,
-// ) -> StatusCode {
-//     let new_user = UserClean {
-//         id: 1337,
-//         username: payload.username,
-//     };
+async fn create_user(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateUser>,
+) -> ApiResult<String> {
+    let username = payload.username;
+    let password = payload.password;
 
-//     let mut users = user_state.users.lock().await;
+    let query_result = sqlx::query!(
+        r#"INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id"#,
+        username,
+        password
+    )
+    .fetch_one(&state.pg_pool)
+    .await;
 
-//     users.push(new_user);
-
-//     println!("Users: {:?}", *users);
-
-//     StatusCode::CREATED
-// }
+    match query_result {
+        Err(e) => {
+            let error_response = serde_json::json!({
+            "status": "error",
+            "message": format!("Database error: { }", e),
+            })
+            .to_string();
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response))
+        }
+        Ok(record) => Ok((StatusCode::CREATED, Json(record.id))),
+    }
+}
 
 type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, String)>;
 
