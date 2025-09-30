@@ -1,35 +1,64 @@
 use axum::{
-    extract::{Path, Request, State},
+    extract::{Request, State},
     http::StatusCode,
-    routing::{delete, get, post},
+    routing::{get, post},
     Json, Router, ServiceExt,
 };
-use log::info;
+use dotenv::dotenv;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
 
-#[derive(Serialize, Deserialize)]
-struct Greeting {
-    greeting: String,
-    visitor: String,
-    visits: u16,
+#[derive(Clone)]
+struct AppState {
+    users: Arc<Mutex<Vec<User>>>,
+    pg_pool: PgPool,
 }
 
-#[derive(Clone)]
-struct UserState {
-    users: Arc<Mutex<Vec<User>>>,
+// For sqlx
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
+#[allow(non_snake_case)] // TODO: why though? it's all snaky anyway
+pub struct NoteModel {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    pub is_published: i8, // BOOLEAN in MySQL is TINYINT(1) so we can use i8 to retrieve the record and later we can parse to Boolean
+    pub created_at: Option<chrono::NaiveDateTime>,
+    // pub updated_at: Option<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>>,
 }
+
+// const POSTGRES_URL: &str = "postgres://postgres:password@localhost:15432/postgres";
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     // needed so that logs are actually printed to the console
     env_logger::init();
 
-    let user_state = UserState {
+    dotenv().ok();
+    let postgres_url = dotenv::var("DATABASE_URL").expect("DATABASE_URL is not configured");
+
+    let pool = match PgPoolOptions::new()
+        .max_connections(3)
+        .connect(&postgres_url)
+        .await
+    {
+        Ok(pool) => {
+            info!("Connected to Postgres");
+            pool
+        }
+        Err(err) => {
+            error!("Failed to connect to Postgres: {:?}", err);
+            std::process::exit(1);
+        }
+    };
+
+    let user_state = AppState {
         users: Arc::new(Mutex::new(vec![])),
+        pg_pool: pool,
     };
 
     // build our application with a route
@@ -37,10 +66,9 @@ async fn main() {
         // `GET /` goes to `root`
         .route("/", get(root))
         // .route("/new-state", get(handler))
-        .route("/hello/{visitor}", get(greet_visitor))
-        .route("/bye", delete(say_goodbye))
-        .route("/users", get(list_users))
-        .route("/create-user", post(create_user))
+        .route("/in-memory/users", get(list_users))
+        .route("/notes", get(list_notes))
+        .route("/in-memory/create-user", post(create_user))
         // .with_state(app_state)
         .with_state(user_state);
     // .with_state(state)
@@ -65,33 +93,8 @@ async fn root() -> &'static str {
     "Hello, World!"
 }
 
-/// Extract the `visitor` path parameter and use it to greet the visitor.
-/// We also use the `State` extractor to access the shared `AppState` and increment the number of visits.
-/// We use `Json` to automatically serialize the `Greeting` struct to JSON.
-async fn greet_visitor(State(user_state): State<UserState>, Path(visitor): Path<String>) {
-    let new_user = User {
-        id: 1337,
-        username: visitor,
-    };
-
-    let mut users = user_state.users.lock().await;
-
-    users.push(new_user);
-
-    println!("Users: {:?}", *users);
-
-    // Json(Greeting::new("Hello", "dd".to_string(), 10 as u16))
-}
-
-/// Say goodbye to the visitor.
-async fn say_goodbye() -> String {
-    info!("bye called");
-
-    "Goodbye".to_string()
-}
-
 async fn create_user(
-    State(user_state): State<UserState>,
+    State(user_state): State<AppState>,
     Json(payload): Json<CreateUser>,
 ) -> StatusCode {
     let new_user = User {
@@ -108,7 +111,27 @@ async fn create_user(
     StatusCode::CREATED
 }
 
-async fn list_users(State(user_state): State<UserState>) -> (StatusCode, Json<Vec<User>>) {
+type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, String)>;
+
+async fn list_notes(State(state): State<AppState>) -> ApiResult<Vec<NoteModel>> {
+    let query_result = sqlx::query_as!(NoteModel, r#"SELECT * FROM notes ORDER by id"#)
+        .fetch_all(&state.pg_pool)
+        .await;
+
+    match query_result {
+        Err(e) => {
+            let error_response = serde_json::json!({
+            "status": "error",
+            "message": format!("Database error: { }", e),
+            })
+            .to_string();
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response))
+        }
+        Ok(notes) => Ok((StatusCode::OK, Json(notes))),
+    }
+}
+
+async fn list_users(State(user_state): State<AppState>) -> (StatusCode, Json<Vec<User>>) {
     let users = user_state.users.lock().await;
     (StatusCode::OK, Json(users.to_vec()))
 }
