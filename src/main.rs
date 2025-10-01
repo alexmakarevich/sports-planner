@@ -78,10 +78,14 @@ async fn main() {
         .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
         // .route("/in-memory/create-user", post(create_user))
         // .with_state(app_state)
-        .layer(ServiceBuilder::new().layer(middleware::from_fn_with_state(
-            state.clone(),
-            dumb_cookie_middleware,
-        )))
+        .layer(
+            ServiceBuilder::new()
+                .layer(middleware::from_fn(logging_middleware))
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    dumb_cookie_middleware,
+                )),
+        )
         .with_state(state);
 
     // .with_state(state)
@@ -106,15 +110,22 @@ async fn root() -> &'static str {
     "Hello, World!"
 }
 
+async fn logging_middleware(req: Request, next: Next) -> (Response) {
+    info!(
+        "request received, path: {}",
+        req.uri().path_and_query().unwrap()
+    );
+
+    return next.run(req).await;
+}
+
 async fn dumb_cookie_middleware(
     State(state): State<AppState>,
+    jar: CookieJar,
     mut req: Request,
     next: Next,
-) -> Response {
+) -> (CookieJar, Response) {
     debug!("middleware called");
-
-    // Build a CookieJar from the request headers
-    let jar = CookieJar::from_headers(req.headers());
 
     if let Some(cookie) = jar.get("session_id") {
         debug!("cookie found {}", cookie.value());
@@ -122,7 +133,7 @@ async fn dumb_cookie_middleware(
         res.headers_mut()
             .append(SET_COOKIE, cookie.to_string().parse().unwrap());
 
-        return res;
+        return (jar, res);
     } else {
         debug!("cookie NOT found");
 
@@ -144,7 +155,7 @@ async fn dumb_cookie_middleware(
         let mut res = next.run(req).await;
         res.headers_mut()
             .append(SET_COOKIE, cookie.to_string().parse().unwrap());
-        return res;
+        return (jar, res);
     }
 }
 
