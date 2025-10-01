@@ -1,29 +1,28 @@
 use axum::{
-    extract::{Request, State},
-    http::header::SET_COOKIE,
+    extract::Request,
     middleware::{self, Next},
     response::Response,
     routing::{delete, get, post},
     Router, ServiceExt,
 };
 use dotenv::dotenv;
-use log::{debug, error, info};
+use log::{error, info};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceBuilder;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
-use uuid::Uuid;
 
 mod entities;
 mod utils;
 
 use crate::{
-    entities::user::{create_user, delete_user_by_id, list_users},
+    entities::{
+        auth::{dumb_cookie_middleware, log_in},
+        user::{create_user, delete_user_by_id, list_users},
+    },
     utils::api::AppState,
 };
-
-use axum_extra::extract::cookie::{Cookie, CookieJar};
 
 // const POSTGRES_URL: &str = "postgres://postgres:password@localhost:15432/postgres";
 
@@ -55,6 +54,7 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .route("/", get(root))
+        .route("/login", post(log_in))
         .merge(protected_routes(state.clone()))
         .layer(ServiceBuilder::new().layer(middleware::from_fn(logging_middleware)))
         .with_state(state);
@@ -102,46 +102,6 @@ async fn logging_middleware(req: Request, next: Next) -> (Response) {
     );
 
     return next.run(req).await;
-}
-
-async fn dumb_cookie_middleware(
-    State(state): State<AppState>,
-    jar: CookieJar,
-    mut req: Request,
-    next: Next,
-) -> (CookieJar, Response) {
-    debug!("middleware called");
-
-    if let Some(cookie) = jar.get("session_id") {
-        debug!("cookie found {}", cookie.value());
-        let mut res = next.run(req).await;
-        res.headers_mut()
-            .append(SET_COOKIE, cookie.to_string().parse().unwrap());
-
-        return (jar, res);
-    } else {
-        debug!("cookie NOT found");
-
-        // Create new session
-        // TODO: replace with better randomized value
-        let session_id = Uuid::new_v4().to_string();
-        // TODO: does the cookie have all the corrc tsecurity sesttings by default?
-        let cookie = Cookie::new("session_id", session_id.clone());
-
-        // Save to DB
-        let _ = sqlx::query!(
-            "INSERT INTO sessions (id, user_id) VALUES ($1, '1aed463a-164d-4067-a0e7-da1daf44a218')",
-            session_id
-        )
-        .execute(&state.pg_pool)
-        .await;
-        // jar.add(cookie);
-        req.extensions_mut().insert(cookie.clone());
-        let mut res = next.run(req).await;
-        res.headers_mut()
-            .append(SET_COOKIE, cookie.to_string().parse().unwrap());
-        return (jar, res);
-    }
 }
 
 // the input to our `create_user` handler
