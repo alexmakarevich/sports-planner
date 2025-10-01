@@ -1,6 +1,8 @@
 use axum::{
     extract::{Path, Request, State},
-    http::StatusCode,
+    http::{header::SET_COOKIE, HeaderValue, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
     routing::{delete, get, post},
     Json, Router, ServiceExt,
 };
@@ -10,13 +12,20 @@ use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tower::ServiceBuilder;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
+use uuid::Uuid;
 
 mod entities;
 use entities::user::UserClean;
 
 use crate::entities::{note::NoteModel, user::CreateUser};
+
+use axum_extra::{
+    extract::cookie::{self, Cookie, CookieJar},
+    TypedHeader,
+};
 
 #[derive(Clone)]
 struct AppState {
@@ -52,15 +61,15 @@ async fn main() {
         }
     };
 
-    let user_state = AppState {
+    let state = AppState {
         users: Arc::new(Mutex::new(vec![])),
         pg_pool: pool,
     };
 
     // build our application with a route
     let app = Router::new()
-        // `GET /` goes to `root`
         .route("/", get(root))
+        // `GET /` goes to `root`
         // .route("/new-state", get(handler))
         .route("/in-memory/users", get(list_users_inmem))
         .route("/notes", get(list_notes))
@@ -69,7 +78,12 @@ async fn main() {
         .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
         // .route("/in-memory/create-user", post(create_user))
         // .with_state(app_state)
-        .with_state(user_state);
+        .layer(ServiceBuilder::new().layer(middleware::from_fn_with_state(
+            state.clone(),
+            dumb_cookie_middleware,
+        )))
+        .with_state(state);
+
     // .with_state(state)
     // `POST /users` goes to `create_user`
     // .route("/users", post(create_user))
@@ -91,6 +105,67 @@ async fn root() -> &'static str {
 
     "Hello, World!"
 }
+
+async fn dumb_cookie_middleware(
+    State(state): State<AppState>,
+    mut req: Request,
+    next: Next,
+) -> Response {
+    debug!("middleware called");
+
+    // Build a CookieJar from the request headers
+    let jar = CookieJar::from_headers(req.headers());
+
+    if let Some(cookie) = jar.get("session_id") {
+        debug!("cookie found {}", cookie.value());
+        let mut res = next.run(req).await;
+        res.headers_mut()
+            .append(SET_COOKIE, cookie.to_string().parse().unwrap());
+
+        return res;
+    } else {
+        debug!("cookie NOT found");
+
+        // Create new session
+        // TODO: replace with better randomized value
+        let session_id = Uuid::new_v4().to_string();
+        // TODO: does the cookie have all the corrc tsecurity sesttings by default?
+        let cookie = Cookie::new("session_id", session_id.clone());
+
+        // Save to DB
+        let _ = sqlx::query!(
+            "INSERT INTO sessions (id, user_id) VALUES ($1, '1aed463a-164d-4067-a0e7-da1daf44a218')",
+            session_id
+        )
+        .execute(&state.pg_pool)
+        .await;
+        // jar.add(cookie);
+        req.extensions_mut().insert(cookie.clone());
+        let mut res = next.run(req).await;
+        res.headers_mut()
+            .append(SET_COOKIE, cookie.to_string().parse().unwrap());
+        return res;
+    }
+}
+
+// // Simple middleware function to authenticate requests
+// async fn auth_middleware(
+//     State(state): State<AppState>,
+//     headers: HeaderMap,
+//     mut request: Request,
+//     next: Next,
+// ) -> Result<impl IntoResponse, StatusCode> {
+//     // Extract the Authorization header
+//     let cookie_header = headers
+//         .get("Cookie")
+//         .and_then(|header| header.to_str().ok());
+
+//     // Insert the decoded claims into request extensions for use in handlers
+//     request.extensions_mut().insert(token_data.claims);
+
+//     // Proceed to the next handler
+//     Ok(next.run(request).await)
+// }
 
 async fn create_user(
     State(state): State<AppState>,
