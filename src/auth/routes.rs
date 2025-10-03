@@ -14,7 +14,7 @@ use rand::{
 use serde::Deserialize;
 use time::OffsetDateTime;
 
-use crate::{entities::user::UserClean, utils::api::AppState};
+use crate::{auth::utils::AuthContext, entities::user::UserClean, utils::api::AppState};
 
 
 #[derive(sqlx::FromRow)]
@@ -25,13 +25,6 @@ pub struct SessionModel {
 
 #[derive(sqlx::FromRow)]
 pub struct UserWithSessionModel {
-    pub user_id: String,
-    pub session_id: String,
-}
-
-// For now same as sqlx model, but has a different domain and may be changed a lot
-#[derive(Debug, Clone)]
-pub struct AuthContext {
     pub user_id: String,
     pub session_id: String,
 }

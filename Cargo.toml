@@ -18,6 +18,8 @@ sqlx = { version = "0.8.6", features = [
     "postgres",
     "runtime-tokio-native-tls",
 ] }
+strum = "0.27.2"
+strum_macros = "0.27.2"
 time = "0.3.44"
 tokio = { version = "1.47.1", features = ["full"] }
 tower = "0.5.2"

@@ -8,7 +8,7 @@ use axum::{
 };
 
 use crate::{
-    entities::auth::AuthContext,
+    auth::utils::AuthContext,
     utils::api::{ApiResult, EmptyApiResult},
     AppState,
 };
@@ -71,7 +71,7 @@ pub async fn delete_user_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> EmptyApiResult {
-    debug!("delete by id called");
+    debug!("delete user by id called");
     debug!("{}", id);
 
     let query_result = sqlx::query!(r#"DELETE FROM users WHERE id = $1"#, id)

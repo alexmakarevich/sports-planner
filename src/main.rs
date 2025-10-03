@@ -13,6 +13,7 @@ use tower::ServiceBuilder;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
 
+mod auth;
 mod entities;
 mod utils;
 
@@ -20,10 +21,8 @@ mod utils;
 // TODO: don't expose internals in error responses (though they are helpful in the early stages of dev)
 
 use crate::{
-    entities::{
-        auth::{cookie_auth_middleware, log_in},
-        user::{create_user, delete_user_by_id, list_users},
-    },
+    auth::routes::{cookie_auth_middleware, log_in},
+    entities::user::{create_user, delete_user_by_id, list_users},
     utils::api::AppState,
 };
 
