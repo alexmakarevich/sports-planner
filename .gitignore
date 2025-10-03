@@ -1,2 +1,4 @@
 /target
 sandbox
+node_modules
+dist

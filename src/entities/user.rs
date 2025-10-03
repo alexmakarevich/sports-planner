@@ -4,10 +4,11 @@ use serde::{Deserialize, Serialize};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    Json,
+    Extension, Json,
 };
 
 use crate::{
+    entities::auth::AuthContext,
     utils::api::{ApiResult, EmptyApiResult},
     AppState,
 };
@@ -99,7 +100,15 @@ pub async fn delete_user_by_id(
     }
 }
 
-pub async fn list_users(State(state): State<AppState>) -> ApiResult<Vec<UserClean>> {
+pub async fn list_users(
+    State(state): State<AppState>,
+    auth_ctx: Extension<AuthContext>,
+) -> ApiResult<Vec<UserClean>> {
+    debug!(
+        "list_users, auth ctx - user: {} session: {}",
+        auth_ctx.user_id, auth_ctx.session_id
+    );
+
     let query_result = sqlx::query_as!(UserClean, r#"SELECT id, username FROM users ORDER by id"#)
         .fetch_all(&state.pg_pool)
         .await;

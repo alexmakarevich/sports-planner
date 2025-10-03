@@ -12,14 +12,28 @@ use rand::{
     rng,
 };
 use serde::Deserialize;
-use uuid::Uuid;
+use time::OffsetDateTime;
 
 use crate::{entities::user::UserClean, utils::api::AppState};
+
 
 #[derive(sqlx::FromRow)]
 pub struct SessionModel {
     pub id: String,
     pub user_id: String,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct UserWithSessionModel {
+    pub user_id: String,
+    pub session_id: String,
+}
+
+// For now same as sqlx model, but has a different domain and may be changed a lot
+#[derive(Debug, Clone)]
+pub struct AuthContext {
+    pub user_id: String,
+    pub session_id: String,
 }
 
 #[derive(Deserialize)]
@@ -55,7 +69,11 @@ pub async fn log_in(
 
             // TODO: nicely avoid these empty headers? currently there for consistent return shape
             let headers = HeaderMap::new();
-            return (StatusCode::UNAUTHORIZED, headers, "It works!".to_string());
+            return (
+                StatusCode::UNAUTHORIZED,
+                headers,
+                "Unauthorized".to_string(),
+            );
         }
         Ok(user) => {
             // Create new session
@@ -64,6 +82,7 @@ pub async fn log_in(
             let cookie = Cookie::new("session_id", session_id.clone());
 
             // Save to DB
+            // TODO: session TTL in DB same as expires in browser
             let query_result = sqlx::query!(
                 "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
                 session_id,
@@ -98,50 +117,54 @@ pub async fn log_in(
         }
     }
 
-    // let query_result = sqlx::query_as!(
-    //     SessionModel,
-    //     r#"SELECT id, username FROM session WHERE id = $1"#,
-    // )
-    // .fetch_one(&state.pg_pool)
-    // .await;
 }
 
-pub async fn dumb_cookie_middleware(
+pub async fn cookie_auth_middleware(
     State(state): State<AppState>,
     jar: CookieJar,
     mut req: Request,
     next: Next,
-) -> (CookieJar, Response) {
+) -> Result<Response, Response> {
     debug!("cookie middleware called");
 
-    if let Some(cookie) = jar.get("session_id") {
-        debug!("cookie found {}", cookie.value());
-        let mut res = next.run(req).await;
-        res.headers_mut()
-            .append(SET_COOKIE, cookie.to_string().parse().unwrap());
 
-        return (jar, res);
-    } else {
+    let Some(cookie) = jar.get("session_id") else {
         debug!("cookie NOT found");
 
-        // Create new session
-        // TODO: replace with better randomized value
-        let session_id = Uuid::new_v4().to_string();
-        // TODO: does the cookie have all the corrc tsecurity sesttings by default?
-        let cookie = Cookie::new("session_id", session_id.clone());
+        // err -> 401, not allowed,
+        // this is an API middleware
+        // for direct client-facing-routes, we may want to redirect to the login page (or we do it in the FE anyway)
 
-        // Save to DB
-        let _ = sqlx::query!(
-            "INSERT INTO sessions (id, user_id) VALUES ($1, '1aed463a-164d-4067-a0e7-da1daf44a218')",
-            session_id
-        )
-        .execute(&state.pg_pool)
-        .await;
-        // jar.add(cookie);
-        req.extensions_mut().insert(cookie.clone());
-        let mut res = next.run(req).await;
-        res.headers_mut()
-            .append(SET_COOKIE, cookie.to_string().parse().unwrap());
-        return (jar, res);
-    }
-}
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response());
+    };
+
+    debug!("cookie found {}", cookie.value());
+
+    let Ok(user_with_session) = sqlx::query_as!(
+        UserWithSessionModel,
+        r#"SELECT u.id as user_id, s.id as session_id FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.id = $1"#, cookie.value()
+    )
+    .fetch_one(&state.pg_pool)
+    .await 
+    else {
+        // force-expire given bad cookie
+        let mut headers = HeaderMap::new();
+        let mut expired_cookie = cookie.clone();
+        expired_cookie.set_expires( OffsetDateTime::UNIX_EPOCH);
+        headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response());
+    };
+
+    let auth_context = AuthContext{
+        user_id: user_with_session.user_id,
+        session_id: user_with_session.session_id
+    };
+
+    req.extensions_mut().insert(auth_context);
+    let mut res = next.run(req).await;
+    res.headers_mut()
+        .append(SET_COOKIE, cookie.to_string().parse().unwrap());
+
+    Ok(res)
+} 
+

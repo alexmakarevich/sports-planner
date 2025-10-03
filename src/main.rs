@@ -16,9 +16,12 @@ use tower_layer::Layer;
 mod entities;
 mod utils;
 
+// TODO: generic db error handler for most queries
+// TODO: don't expose internals in error responses (though they are helpful in the early stages of dev)
+
 use crate::{
     entities::{
-        auth::{dumb_cookie_middleware, log_in},
+        auth::{cookie_auth_middleware, log_in},
         user::{create_user, delete_user_by_id, list_users},
     },
     utils::api::AppState,
@@ -53,9 +56,9 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
+        .merge(protected_routes(state.clone()))
         .route("/", get(root))
         .route("/login", post(log_in))
-        .merge(protected_routes(state.clone()))
         .layer(ServiceBuilder::new().layer(middleware::from_fn(logging_middleware)))
         .with_state(state);
 
@@ -64,7 +67,7 @@ async fn main() {
             .nest("/api", api_routes(state.clone()))
             .layer(ServiceBuilder::new().layer(middleware::from_fn_with_state(
                 state.clone(),
-                dumb_cookie_middleware,
+                cookie_auth_middleware,
             )))
             .with_state(state)
     }
