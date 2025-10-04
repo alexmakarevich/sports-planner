@@ -10,5 +10,6 @@ pub enum Roles {
 
     Coach,
     Player,
-    User,
 }
+
+// TODO: create initial super_admin user via special route on first start, and/or use the env for
