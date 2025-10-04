@@ -1,8 +1,14 @@
--- Add up migration script here
 CREATE TABLE IF NOT EXISTS users (
-  id CHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+  id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
   username text     NOT NULL UNIQUE,
   password  text    NOT NULL,
+  org_id VARCHAR(36)  NOT NULL,
+
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_org
+    FOREIGN KEY(org_id)
+	  REFERENCES orgs(id)
+	  ON DELETE RESTRICT
 );

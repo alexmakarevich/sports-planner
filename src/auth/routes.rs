@@ -58,7 +58,7 @@ pub async fn log_in(
             "message": format!("Database error: { }", e),
             })
             .to_string();
-            error!("Log in error: {}", error_response);
+            error!("Log in error, failed to get user w/ password: {}", error_response);
 
             // TODO: nicely avoid these empty headers? currently there for consistent return shape
             let headers = HeaderMap::new();
@@ -96,7 +96,7 @@ pub async fn log_in(
                     "message": format!("Database error: { }", err),
                     })
                     .to_string();
-                    error!("Log in error: {}", error_response);
+                    error!("Log in error - failed to start session: {}", error_response);
                     // TODO: nicely avoid these empty headers? currently there for consistent return shape
                     let headers = HeaderMap::new();
 
