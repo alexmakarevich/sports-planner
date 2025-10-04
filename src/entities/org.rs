@@ -1,8 +1,4 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    Extension,
-};
+use axum::{extract::State, http::StatusCode, Extension};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -19,9 +15,8 @@ pub struct OrgModel {
     pub updated_at: Option<chrono::NaiveDateTime>,
 }
 
-// TODO: modify org, delete org
-
-// TODO: rights
+// TODO: modify org
+// TODO: more granular checks and readable errors
 pub async fn delete_own_org(
     State(state): State<AppState>,
     auth_ctx: Extension<AuthContext>,

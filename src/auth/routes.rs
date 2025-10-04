@@ -1,33 +1,26 @@
 use axum::{
-    extract::{Request, State},
+    extract::State,
     http::{header::SET_COOKIE, HeaderMap, StatusCode},
-    middleware::Next,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Json,
 };
-use axum_extra::extract::cookie::{Cookie, CookieJar};
+use axum_extra::extract::cookie::Cookie;
 use log::{debug, error};
 use rand::{
     distr::{Alphanumeric, SampleString},
     rng,
 };
 use serde::Deserialize;
-use time::OffsetDateTime;
 
-use crate::{auth::utils::AuthContext, entities::user::UserClean, utils::api::AppState};
-
+use crate::{
+    entities::user::UserClean,
+    utils::api::{handle_unexpected_db_err, AppState},
+};
 
 #[derive(sqlx::FromRow)]
 pub struct SessionModel {
     pub id: String,
     pub user_id: String,
-}
-
-#[derive(sqlx::FromRow)]
-pub struct UserWithSessionModel {
-    pub user_id: String,
-    pub session_id: String,
-    pub org_id: String,
 }
 
 #[derive(Deserialize)]
@@ -36,8 +29,76 @@ pub struct LoginParams {
     pub password: String,
 }
 
+#[derive(Deserialize)]
+pub struct SignUpWithNewOrgParams {
+    pub username: String,
+    pub password: String,
+    pub org_title: String,
+}
+
+pub async fn sign_up_with_new_org(
+    State(state): State<AppState>,
+    Json(payload): Json<SignUpWithNewOrgParams>,
+) -> Result<(StatusCode, HeaderMap, Json<String>), (StatusCode, String)> {
+    let mut tx = state
+        .pg_pool
+        .begin()
+        .await
+        .map_err(handle_unexpected_db_err)?;
+
+    let created_org = sqlx::query!(
+        r#"INSERT INTO orgs (title) VALUES ($1) RETURNING id"#,
+        payload.org_title,
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(handle_unexpected_db_err)?;
+
+    let new_user = sqlx::query!(
+        r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
+        payload.username,
+        payload.password,
+        created_org.id
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(handle_unexpected_db_err)?;
+
+    let _ = sqlx::query!(
+        r#"INSERT INTO role_assignments (user_id, role) VALUES ($1, 'org_admin') RETURNING id"#,
+        new_user.id,
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(handle_unexpected_db_err)?;
+
+    // Create new session
+    let session_id = Alphanumeric.sample_string(&mut rng(), 16);
+    // TODO: does the cookie have all the correct security settings by default?
+
+    // Save to DB
+    // TODO: session TTL in DB same as expires in browser
+    let _ = sqlx::query!(
+        "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+        session_id,
+        new_user.id
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(handle_unexpected_db_err)?;
+
+    let _ = tx.commit().await.map_err(handle_unexpected_db_err)?;
+
+    let cookie = Cookie::new("session_id", session_id.clone());
+    let mut headers = HeaderMap::new();
+    headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
+
+    Ok((StatusCode::CREATED, headers, Json(new_user.id)))
+}
+
 // TODO: log out
 
+// TODO: refactor and improve
 pub async fn log_in(
     State(state): State<AppState>,
     Json(payload): Json<LoginParams>,
@@ -61,7 +122,10 @@ pub async fn log_in(
             "message": format!("Database error: { }", e),
             })
             .to_string();
-            error!("Log in error, failed to get user w/ password: {}", error_response);
+            error!(
+                "Log in error, failed to get user w/ password: {}",
+                error_response
+            );
 
             // TODO: nicely avoid these empty headers? currently there for consistent return shape
             let headers = HeaderMap::new();
@@ -112,56 +176,4 @@ pub async fn log_in(
             }
         }
     }
-
 }
-
-pub async fn cookie_auth_middleware(
-    State(state): State<AppState>,
-    jar: CookieJar,
-    mut req: Request,
-    next: Next,
-) -> Result<Response, Response> {
-    debug!("cookie middleware called");
-
-
-    let Some(cookie) = jar.get("session_id") else {
-        debug!("cookie NOT found");
-
-        // err -> 401, not allowed,
-        // this is an API middleware
-        // for direct client-facing-routes, we may want to redirect to the login page (or we do it in the FE anyway)
-
-        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response());
-    };
-
-    debug!("cookie found {}", cookie.value());
-
-    let Ok(user_with_session) = sqlx::query_as!(
-        UserWithSessionModel,
-        r#"SELECT u.id as user_id, s.id as session_id, u.org_id as org_id FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.id = $1"#, cookie.value()
-    )
-    .fetch_one(&state.pg_pool)
-    .await 
-    else {
-        // force-expire given bad cookie
-        let mut headers = HeaderMap::new();
-        let mut expired_cookie = cookie.clone();
-        expired_cookie.set_expires( OffsetDateTime::UNIX_EPOCH);
-        headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
-        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response());
-    };
-
-    let auth_context = AuthContext{
-        user_id: user_with_session.user_id,
-        session_id: user_with_session.session_id,
-        org_id: user_with_session.org_id
-    };
-
-    req.extensions_mut().insert(auth_context);
-    let mut res = next.run(req).await;
-    res.headers_mut()
-        .append(SET_COOKIE, cookie.to_string().parse().unwrap());
-
-    Ok(res)
-} 
-

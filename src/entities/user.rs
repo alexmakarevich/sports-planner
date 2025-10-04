@@ -38,13 +38,6 @@ pub struct CreateUser {
     pub password: String,
 }
 
-#[derive(Deserialize)]
-pub struct SignUpWithNewOrgParams {
-    pub username: String,
-    pub password: String,
-    pub org_title: String,
-}
-
 // user from DB wihtout security and unnecessary util fields
 #[derive(Serialize, Debug, Clone, sqlx::FromRow)]
 pub struct UserClean {
@@ -53,66 +46,6 @@ pub struct UserClean {
 }
 
 // TODO: sign_up_via_invite
-
-pub async fn sign_up_with_new_org(
-    State(state): State<AppState>,
-    Json(payload): Json<SignUpWithNewOrgParams>,
-) -> Result<(StatusCode, HeaderMap, Json<String>), (StatusCode, String)> {
-    let mut tx = state
-        .pg_pool
-        .begin()
-        .await
-        .map_err(handle_unexpected_db_err)?;
-
-    let created_org = sqlx::query!(
-        r#"INSERT INTO orgs (title) VALUES ($1) RETURNING id"#,
-        payload.org_title,
-    )
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(handle_unexpected_db_err)?;
-
-    let new_user = sqlx::query!(
-        r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
-        payload.username,
-        payload.password,
-        created_org.id
-    )
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(handle_unexpected_db_err)?;
-
-    let _ = sqlx::query!(
-        r#"INSERT INTO role_assignments (user_id, role) VALUES ($1, 'org_admin') RETURNING id"#,
-        new_user.id,
-    )
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(handle_unexpected_db_err)?;
-
-    // Create new session
-    let session_id = Alphanumeric.sample_string(&mut rng(), 16);
-    // TODO: does the cookie have all the correct security settings by default?
-
-    // Save to DB
-    // TODO: session TTL in DB same as expires in browser
-    let _ = sqlx::query!(
-        "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
-        session_id,
-        new_user.id
-    )
-    .execute(&mut *tx)
-    .await
-    .map_err(handle_unexpected_db_err)?;
-
-    let _ = tx.commit().await.map_err(handle_unexpected_db_err)?;
-
-    let cookie = Cookie::new("session_id", session_id.clone());
-    let mut headers = HeaderMap::new();
-    headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
-
-    Ok((StatusCode::CREATED, headers, Json(new_user.id)))
-}
 
 // TODO: disable entirely or conver to global superadmin fn
 pub async fn create_user(

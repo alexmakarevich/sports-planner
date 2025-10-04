@@ -22,10 +22,13 @@ mod utils;
 // soft-deletes via deleted_at (not super high-prio now)
 
 use crate::{
-    auth::routes::{cookie_auth_middleware, log_in},
+    auth::{
+        middlewares::cookie_auth_middleware,
+        routes::{log_in, sign_up_with_new_org},
+    },
     entities::{
         org::delete_own_org,
-        user::{create_user, delete_user_by_id, list_users, sign_up_with_new_org},
+        user::{create_user, delete_user_by_id, list_users},
     },
     utils::api::AppState,
 };
