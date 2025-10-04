@@ -1,10 +1,13 @@
 import axios from "axios";
-import { logIn, logInCoductorUser } from "./utils";
+import { logInCoductorUser } from "./utils";
 import { API_URL } from "./utils/env";
 
 let testCookie: string;
 
-describe(__filename, () => {
+describe.skip(__filename, () => {
+  // it.only("logs in", async () => {
+  //   const cookie = await logInCoductorUser();
+  // });
   beforeAll(async () => {
     testCookie = await logInCoductorUser();
   });

@@ -27,6 +27,7 @@ pub struct SessionModel {
 pub struct UserWithSessionModel {
     pub user_id: String,
     pub session_id: String,
+    pub org_id: String,
 }
 
 #[derive(Deserialize)]
@@ -34,6 +35,8 @@ pub struct LoginParams {
     pub username: String,
     pub password: String,
 }
+
+// TODO: log out
 
 pub async fn log_in(
     State(state): State<AppState>,
@@ -135,7 +138,7 @@ pub async fn cookie_auth_middleware(
 
     let Ok(user_with_session) = sqlx::query_as!(
         UserWithSessionModel,
-        r#"SELECT u.id as user_id, s.id as session_id FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.id = $1"#, cookie.value()
+        r#"SELECT u.id as user_id, s.id as session_id, u.org_id as org_id FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.id = $1"#, cookie.value()
     )
     .fetch_one(&state.pg_pool)
     .await 
@@ -150,7 +153,8 @@ pub async fn cookie_auth_middleware(
 
     let auth_context = AuthContext{
         user_id: user_with_session.user_id,
-        session_id: user_with_session.session_id
+        session_id: user_with_session.session_id,
+        org_id: user_with_session.org_id
     };
 
     req.extensions_mut().insert(auth_context);

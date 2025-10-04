@@ -17,12 +17,16 @@ mod auth;
 mod entities;
 mod utils;
 
-// TODO: generic db error handler for most queries
 // TODO: don't expose internals in error responses (though they are helpful in the early stages of dev)
+// TODO: generically handle DB errors for extra-pretty code
+// soft-deletes via deleted_at (not super high-prio now)
 
 use crate::{
     auth::routes::{cookie_auth_middleware, log_in},
-    entities::user::{create_user, delete_user_by_id, list_users},
+    entities::{
+        org::delete_own_org,
+        user::{create_user, delete_user_by_id, list_users, sign_up_with_new_org},
+    },
     utils::api::AppState,
 };
 
@@ -126,27 +130,34 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .merge(protected_routes(state.clone()))
-        .route("/", get(root))
-        .route("/login", post(log_in))
+        .nest("/api", api_routes(state.clone()))
         .layer(ServiceBuilder::new().layer(middleware::from_fn(logging_middleware)))
         .with_state(state);
 
-    fn protected_routes<S>(state: AppState) -> Router<S> {
+    fn unprotected_api_routes<S>(state: AppState) -> Router<S> {
         Router::new()
-            .nest("/api", api_routes(state.clone()))
-            .layer(ServiceBuilder::new().layer(middleware::from_fn_with_state(
+            .route("/log-in", post(log_in))
+            .route("/sign-up-with-new-org", post(sign_up_with_new_org))
+            .with_state(state)
+    }
+
+    fn protected_api_routes<S>(state: AppState) -> Router<S> {
+        Router::new()
+            .route("/users/list", get(list_users))
+            .route("/users/create", post(create_user))
+            .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
+            .route("/orgs/delete-own", delete(delete_own_org))
+            .layer(middleware::from_fn_with_state(
                 state.clone(),
                 cookie_auth_middleware,
-            )))
+            ))
             .with_state(state)
     }
 
     fn api_routes<S>(state: AppState) -> Router<S> {
         Router::new()
-            .route("/users/list", get(list_users))
-            .route("/users/create", post(create_user))
-            .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
+            .merge(protected_api_routes(state.clone()))
+            .merge(unprotected_api_routes(state.clone()))
             .with_state(state)
     }
 
@@ -158,12 +169,6 @@ async fn main() {
     info!("running rust server on localhost:3333");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3333").await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn root() -> &'static str {
-    info!("base route called");
-
-    "Hello, World!"
 }
 
 async fn logging_middleware(req: Request, next: Next) -> (Response) {

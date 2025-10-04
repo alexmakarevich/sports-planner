@@ -3,4 +3,8 @@
 pub struct AuthContext {
     pub user_id: String,
     pub session_id: String,
+    pub org_id: String,
+    // pub roles: Vec<Roles>
 }
+
+// TODO: IMPORTANT! hash passwords

@@ -1,9 +1,5 @@
-import axios from "axios";
-import {
-  BACKEND_URL,
-  CONDUCTOR_PASSWORD,
-  CONDUCTOR_USERNAME,
-} from "./utils/env";
+import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
+import { API_URL, CONDUCTOR_PASSWORD, CONDUCTOR_USERNAME } from "./utils/env";
 
 export const logIn = async ({
   username,
@@ -14,7 +10,7 @@ export const logIn = async ({
 }): Promise<string> => {
   const { status, data, headers } = await axios({
     method: "POST",
-    url: BACKEND_URL + "/login",
+    url: API_URL + "/log-in",
     data: {
       username,
       password,
@@ -38,3 +34,47 @@ export const logInCoductorUser = () =>
     username: CONDUCTOR_USERNAME,
     password: CONDUCTOR_PASSWORD,
   });
+
+export const signUpWithNewOrg = async ({
+  username,
+  password,
+  orgTitle,
+}: {
+  username: string;
+  password: string;
+  orgTitle: string;
+}): Promise<string> => {
+  const { status, data, headers } = await axios({
+    method: "POST",
+    url: API_URL + "/sign-up-with-new-org",
+    data: {
+      username,
+      password,
+      org_title: orgTitle,
+    },
+    validateStatus: () => true,
+  });
+  console.log({ status, data, headers });
+
+  const cookies = headers["set-cookie"];
+  if (Array.isArray(cookies)) {
+    const specificCookie = cookies.find((c) => c.startsWith("session_id="));
+    if (specificCookie) {
+      return specificCookie;
+    }
+  }
+  throw new Error("Failed to retieve cookie from signup with new org");
+};
+
+export const makeTestAxios = (axiosInstance: AxiosInstance) => {
+  return async (reqParams: AxiosRequestConfig) => {
+    try {
+      console.log("test axios called");
+      return await axiosInstance(reqParams);
+    } catch (err) {
+      const { method, url, params, data } = reqParams;
+      console.error("Error in test Axios", { method, url, params, data }, err);
+      throw err;
+    }
+  };
+};
