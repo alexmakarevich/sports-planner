@@ -1,23 +1,15 @@
-use axum_extra::extract::cookie::Cookie;
 use log::{debug, error};
-use rand::{
-    distr::{Alphanumeric, SampleString},
-    rng,
-};
 use serde::{Deserialize, Serialize};
-
-use axum::{
-    extract::{Path, State},
-    http::{header::SET_COOKIE, HeaderMap, StatusCode},
-    response::IntoResponse,
-    Extension, Json,
-};
-use sqlx::Error;
 
 use crate::{
     auth::utils::AuthContext,
-    utils::api::{handle_unexpected_db_err, ApiResult, EmptyApiResult},
+    utils::api::{ApiResult, EmptyApiResult},
     AppState,
+};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    Extension, Json,
 };
 
 // For sqlx
@@ -122,8 +114,8 @@ pub async fn list_users(
     auth_ctx: Extension<AuthContext>,
 ) -> ApiResult<Vec<UserClean>> {
     debug!(
-        "list_users, auth ctx - user: {} session: {}, org: {}",
-        auth_ctx.user_id, auth_ctx.session_id, auth_ctx.org_id
+        "list_users, auth ctx - user: {} session: {}, org: {}, roles: {:?}",
+        auth_ctx.user_id, auth_ctx.session_id, auth_ctx.org_id, auth_ctx.roles
     );
 
     let query_result = sqlx::query_as!(

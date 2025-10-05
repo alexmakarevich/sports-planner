@@ -1,10 +1,12 @@
-// For now same as sqlx model, but has a different domain and may be changed a lot
-#[derive(Debug, Clone)]
+use crate::auth::roles::Role;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthContext {
     pub user_id: String,
     pub session_id: String,
     pub org_id: String,
-    // pub roles: Vec<Roles>
+    pub roles: Vec<Role>,
 }
 
 // TODO: IMPORTANT! hash passwords
