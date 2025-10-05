@@ -1,5 +1,5 @@
 import axios from "axios";
-import { logInCoductorUser } from "./utils";
+import { logInCoductorUser, makeTestAxios } from "./utils";
 import { API_URL } from "./utils/env";
 
 let testCookie: string;
@@ -15,7 +15,9 @@ describe.skip(__filename, () => {
   it("gets list of users", async () => {
     console.log({ testCookie });
 
-    const { status, data } = await axios({
+    const testAxios = makeTestAxios(axios);
+
+    const { status, data } = await testAxios({
       url: API_URL + "/users/list",
       headers: {
         Cookie: testCookie,

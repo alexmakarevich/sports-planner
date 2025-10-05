@@ -2,13 +2,17 @@ use log::{debug, error};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    auth::utils::AuthContext,
-    utils::api::{ApiResult, EmptyApiResult},
+    auth::{
+        roles::{check_user_roles, Role},
+        utils::AuthContext,
+    },
+    utils::api::ApiResult,
     AppState,
 };
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::{IntoResponse, Response},
     Extension, Json,
 };
 
@@ -44,9 +48,11 @@ pub async fn create_user(
     State(state): State<AppState>,
     auth_ctx: Extension<AuthContext>,
     Json(payload): Json<CreateUser>,
-) -> ApiResult<String> {
+) -> Result<Response, Response> {
     let username = payload.username;
     let password = payload.password;
+
+    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin])?;
 
     let query_result = sqlx::query!(
         r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
@@ -64,9 +70,9 @@ pub async fn create_user(
             "message": format!("Database error: { }", e),
             })
             .to_string();
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response))
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response).into_response())
         }
-        Ok(record) => Ok((StatusCode::CREATED, Json(record.id))),
+        Ok(record) => Ok((StatusCode::CREATED, Json(record.id)).into_response()),
     }
 }
 
@@ -75,13 +81,15 @@ pub async fn delete_user_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
     auth_ctx: Extension<AuthContext>,
-) -> EmptyApiResult {
+) -> Result<StatusCode, Response> {
     debug!("delete user by id called");
     debug!("{}", id);
     debug!(
         "delete_user_by_id, auth ctx - user: {} session: {}, org: {}",
         auth_ctx.user_id, auth_ctx.session_id, auth_ctx.org_id
     );
+
+    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin])?;
 
     let query_result = sqlx::query!(r#"DELETE FROM users WHERE id = $1"#, id)
         .execute(&state.pg_pool)
@@ -94,14 +102,15 @@ pub async fn delete_user_by_id(
             "message": format!("Database error: { }", e),
             })
             .to_string();
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response))
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response).into_response())
         }
         Ok(result_info) => {
             if result_info.rows_affected() == 0 {
                 Err((
                     StatusCode::NOT_ACCEPTABLE,
                     "User with given ID does not exist - possibly already deleted".to_string(),
-                ))
+                )
+                    .into_response())
             } else {
                 Ok(StatusCode::NO_CONTENT)
             }

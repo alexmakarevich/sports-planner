@@ -42,31 +42,13 @@ pub async fn cookie_auth_middleware(
 
     debug!("cookie found {}", cookie.value());
 
-    // SELECT u.id as user_id, u.username as username,
-    // COALESCE(array_agg(ra.role) FILTER (WHERE ra.role IS NOT NULL), '{}') AS "roles!"
-    // FROM users u JOIN role_assignments ra on ra.user_id = u.id WHERE u.username = 'super_user' AND u.password = 'dev_password93837&§!'
-    // GROUP BY u.id
-    // ;
-
-    // r#"
-    // SELECT u.id as user_id, u.username as username, s.id as session_id,
-    // COALESCE(array_agg(ra.role) FILTER (WHERE ra.role IS NOT NULL), '{}') AS "roles!"
-    // FROM users u
-    // JOIN role_assignments ra on ra.user_id = u.id
-    // JOIN sessions s ON u.id = s.user_id WHERE s.id = $1
-    // GROUP BY (u.id,s.id)
-    // ;
-    // "#,
-
-    //   r#"SELECT u.id as user_id, s.id as session_id, u.org_id as org_id FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.id = $1"#
-
     let user_with_session = sqlx::query_as!(
         UserWithSessionModel,
         r#"
         SELECT u.id as user_id, s.id as session_id, u.org_id as org_id,
         COALESCE(array_agg(ra.role) FILTER (WHERE ra.role IS NOT NULL), '{}') AS "roles: Vec<Role>" 
         FROM users u
-        JOIN role_assignments ra on ra.user_id = u.id
+        LEFT JOIN role_assignments ra on ra.user_id = u.id
         JOIN sessions s ON u.id = s.user_id WHERE s.id = $1
         GROUP BY (u.id, s.id)
         ;
