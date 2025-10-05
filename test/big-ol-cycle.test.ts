@@ -12,6 +12,7 @@ const fileName = path.parse(filePath).base;
 const testId = timestamp + randomUUID().slice(0, 4) + fileName;
 
 // TODO: ensure cleanup
+// TODO: log out
 
 describe.only(__filename, () => {
   it("does it all...", async () => {

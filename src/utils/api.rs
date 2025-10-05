@@ -7,6 +7,8 @@ pub type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, String)>;
 pub type EmptyApiResult = Result<StatusCode, (StatusCode, String)>;
 #[derive(Clone)]
 pub struct AppState {
+    // FYI: no Arc+Mutex necessary, because pool implements
+    // clone and send+sync
     pub pg_pool: PgPool,
 }
 
