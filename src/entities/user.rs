@@ -29,7 +29,6 @@ pub struct UserClean {
     pub username: String,
 }
 
-// TODO: disable entirely or conver to global superadmin fn
 pub async fn create_user(
     State(state): State<AppState>,
     auth_ctx: Extension<AuthContext>,
