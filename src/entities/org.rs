@@ -37,13 +37,6 @@ pub async fn delete_own_org(
         .await
         .map_err(handle_unexpected_db_err)?;
 
-    // if query_result.rows_affected() == 0 {
-    //     Err((
-    //         StatusCode::NOT_ACCEPTABLE,
-    //         "Org with given ID does not exist - possibly already deleted".to_string(),
-    //     ))
-    // };
-
     let _ = tx.commit().await.map_err(handle_unexpected_db_err)?;
 
     Ok(StatusCode::NO_CONTENT)
