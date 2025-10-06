@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, State},
     http::{header::SET_COOKIE, HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     Json,
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
@@ -14,8 +14,8 @@ use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
 use crate::{
-    entities::{service_invite, user::UserClean},
-    utils::api::{handle_unexpected_db_err, AppState},
+    entities::user::UserClean,
+    utils::api::{db_err_to_response, handle_unexpected_db_err, AppState},
 };
 
 #[derive(sqlx::FromRow)]
@@ -170,84 +170,62 @@ pub async fn sign_up_with_new_org(
 
 // TODO: log out
 
-// TODO: refactor and improve
 pub async fn log_in(
     State(state): State<AppState>,
     Json(payload): Json<LoginParams>,
-) -> impl IntoResponse {
+) -> Result<Response, Response> {
+    let mut tx = state.pg_pool.begin().await.map_err(db_err_to_response)?;
+
     debug!("logging in");
     let username = payload.username;
     let password = payload.password;
-    let query_result = sqlx::query_as!(
+    let user = sqlx::query_as!(
         UserClean,
         r#"SELECT id, username FROM users WHERE username = $1 AND password = $2"#,
         username,
         password
     )
-    .fetch_one(&state.pg_pool)
-    .await;
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|err| {
+        error!("Log in error, failed to get user w/ password: {:?}", err);
+        return (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response();
+    })?;
 
-    match query_result {
-        Err(e) => {
-            let error_response = serde_json::json!({
-            "status": "error",
-            "message": format!("Database error: { }", e),
-            })
-            .to_string();
-            error!(
-                "Log in error, failed to get user w/ password: {}",
-                error_response
-            );
+    // Create new session
+    let session_id = Alphanumeric.sample_string(&mut rng(), 16);
+    let cookie = Cookie::build(("session_id", session_id.clone()))
+        .secure(true)
+        .http_only(true)
+        .same_site(SameSite::Strict)
+        .expires(OffsetDateTime::now_utc() + Duration::days(7));
+    // Save to DB
+    // TODO: session TTL in DB same as expires in browser
+    let _ = sqlx::query!(
+        "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+        session_id,
+        user.id
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(|err| {
+        let error_response = serde_json::json!({
+        "status": "error",
+        "message": format!("Database error: { }", err),
+        })
+        .to_string();
+        error!("Log in error - failed to start session: {}", error_response);
 
-            // TODO: nicely avoid these empty headers? currently there for consistent return shape
-            let headers = HeaderMap::new();
-            return (
-                StatusCode::UNAUTHORIZED,
-                headers,
-                "Unauthorized".to_string(),
-            );
-        }
-        Ok(user) => {
-            // Create new session
-            let session_id = Alphanumeric.sample_string(&mut rng(), 16);
-            let cookie = Cookie::build(("session_id", session_id.clone()))
-                .secure(true)
-                .http_only(true)
-                .same_site(SameSite::Strict)
-                .expires(OffsetDateTime::now_utc() + Duration::days(7));
-            // Save to DB
-            // TODO: session TTL in DB same as expires in browser
-            let query_result = sqlx::query!(
-                "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
-                session_id,
-                user.id
-            )
-            .execute(&state.pg_pool)
-            .await;
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Unexpected error with login".to_string(),
+        )
+            .into_response();
+    })?;
 
-            match query_result {
-                Ok(_) => {
-                    let mut headers = HeaderMap::new();
-                    headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
-                    return (StatusCode::OK, headers, "Login successful".to_string());
-                }
-                Err(err) => {
-                    let error_response = serde_json::json!({
-                    "status": "error",
-                    "message": format!("Database error: { }", err),
-                    })
-                    .to_string();
-                    error!("Log in error - failed to start session: {}", error_response);
-                    // TODO: nicely avoid these empty headers? currently there for consistent return shape
-                    let headers = HeaderMap::new();
+    let _ = tx.commit().await.map_err(db_err_to_response)?;
 
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        headers,
-                        "Unexpected error with login".to_string(),
-                    );
-                }
-            }
-        }
-    }
+    let mut headers = HeaderMap::new();
+    headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
+    return Ok((StatusCode::OK, headers, "Login successful".to_string()).into_response());
 }
