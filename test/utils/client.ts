@@ -84,6 +84,15 @@ export class Client {
     });
   }
 
+  // LOG-OUT
+
+  async logOut() {
+    await this.axios({
+      method: "POST",
+      url: API_URL + "/log-out",
+    });
+  }
+
   // SElF-DELETE
 
   async deleteOwnOrg() {

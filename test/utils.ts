@@ -1,5 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
 import { API_URL, CONDUCTOR_PASSWORD, CONDUCTOR_USERNAME } from "./utils/env";
+import { DateTime } from "luxon";
+import util from "util";
+import { randomUUID } from "crypto";
+import path from "path";
 
 export const logIn = async ({
   username,
@@ -107,4 +111,13 @@ export const makeTestAxios = (axiosInstance: AxiosInstance) => {
       throw err;
     }
   };
+};
+
+export const makeTestId = () => {
+  const timestamp = DateTime.now().toFormat("yyMMdd-HHmmss");
+  const callSites = util.getCallSites();
+  const filePath = callSites[0].scriptName;
+  const fileName = path.parse(filePath).base;
+  const testId = timestamp + randomUUID().slice(0, 4) + fileName;
+  return { testId };
 };

@@ -22,7 +22,7 @@ mod utils;
 
 use crate::{
     auth::{
-        auth_routes::{log_in, sign_up_via_invite, sign_up_with_new_org},
+        auth_routes::{log_in, log_out, sign_up_via_invite, sign_up_with_new_org},
         middlewares::cookie_auth_middleware,
     },
     entities::{
@@ -92,6 +92,7 @@ async fn main() {
 
     fn protected_api_routes<S>(state: AppState) -> Router<S> {
         Router::new()
+            .route("/log-out", post(log_out))
             .route("/users/list", get(list_users))
             .route("/users/create", post(create_user))
             .route("/users/delete-by-id/{id}", delete(delete_user_by_id))

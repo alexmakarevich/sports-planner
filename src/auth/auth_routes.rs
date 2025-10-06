@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, State},
     http::{header::SET_COOKIE, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Json,
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use log::{debug, error};
@@ -14,6 +14,7 @@ use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
 use crate::{
+    auth::utils::AuthContext,
     entities::user::UserClean,
     utils::api::{db_err_to_response, handle_unexpected_db_err, AppState},
 };
@@ -168,7 +169,16 @@ pub async fn sign_up_with_new_org(
     Ok((StatusCode::CREATED, headers, Json(new_user.id)))
 }
 
-// TODO: log out
+pub async fn log_out(
+    State(state): State<AppState>,
+    auth_ctx: Extension<AuthContext>,
+) -> Result<Response, Response> {
+    let _ = sqlx::query!("DELETE FROM sessions WHERE id = $1", auth_ctx.session_id,)
+        .execute(&state.pg_pool)
+        .await
+        .map_err(db_err_to_response)?;
+    Ok((StatusCode::NO_CONTENT).into_response())
+}
 
 pub async fn log_in(
     State(state): State<AppState>,

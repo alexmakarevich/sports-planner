@@ -1,16 +1,9 @@
-import { logIn, signUpViaInvite, signUpWithNewOrg } from "./utils";
+import { logIn, makeTestId, signUpViaInvite, signUpWithNewOrg } from "./utils";
 import { Client } from "./utils/client";
-import { DateTime } from "luxon";
-import util from "util";
 import { randomUUID } from "crypto";
-import path from "path";
 import { AxiosError, AxiosResponse } from "axios";
 
-const timestamp = DateTime.now().toFormat("yyMMdd-HHmmss");
-const callSites = util.getCallSites();
-const filePath = callSites[0].scriptName;
-const fileName = path.parse(filePath).base;
-const testId = timestamp + randomUUID().slice(0, 4) + fileName;
+const { testId } = makeTestId();
 
 const regularUserName = "regular-" + testId;
 const regularUserPassword = regularUserName;
@@ -21,7 +14,7 @@ const invitedUserPassword = regularUserName;
 // TODO: ensure cleanup
 // TODO: log out
 
-describe.only(__filename, () => {
+describe(__filename, () => {
   it("does it all...", async () => {
     const newOrgCookie = await signUpWithNewOrg({
       username: "admin-user-" + testId,
@@ -46,42 +39,26 @@ describe.only(__filename, () => {
       isTest: true,
     });
 
-    let errorResponse: AxiosResponse | undefined;
-
-    try {
-      await regularUserClient.createUser({
+    await expect(
+      regularUserClient.createUser({
         username: "test-delete-pls-" + randomUUID(),
         password: "cckwmckwekcrk",
-      });
-    } catch (err) {
-      if (err instanceof AxiosError) {
-        errorResponse = err.response;
-        console.info(err.response?.status, err.response?.data);
-      } else {
-        console.info(err);
-      }
-    }
+      })
+    ).rejects.toMatchObject({
+      response: {
+        status: 403,
+        data: "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]",
+      },
+    });
 
-    expect(errorResponse?.status).toEqual(401);
-    expect(errorResponse?.data).toEqual(
-      "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]"
-    );
-
-    try {
-      await regularUserClient.deleteUserById("jdjdjjd");
-    } catch (err) {
-      if (err instanceof AxiosError) {
-        errorResponse = err.response;
-        console.info(err.response?.status, err.response?.data);
-      } else {
-        console.info(err);
-      }
-    }
-
-    expect(errorResponse?.status).toEqual(401);
-    expect(errorResponse?.data).toEqual(
-      "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]"
-    );
+    await expect(
+      regularUserClient.deleteUserById("jdjdjjd")
+    ).rejects.toMatchObject({
+      response: {
+        status: 403,
+        data: "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]",
+      },
+    });
 
     const serviceInviteId = await orgAdminClient.createServiceInvite();
 
@@ -98,6 +75,15 @@ describe.only(__filename, () => {
 
     const usersListed = await invitedClient.listUsers();
     console.log({ usersListed });
+
+    await regularUserClient.logOut();
+
+    await expect(regularUserClient.listUsers()).rejects.toMatchObject({
+      response: {
+        status: 401,
+        data: "Unauthorized",
+      },
+    });
 
     await orgAdminClient.deleteServiceInviteById(serviceInviteId);
 
