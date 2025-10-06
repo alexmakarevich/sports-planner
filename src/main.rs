@@ -22,8 +22,8 @@ mod utils;
 
 use crate::{
     auth::{
+        auth_routes::{log_in, sign_up_via_invite, sign_up_with_new_org},
         middlewares::cookie_auth_middleware,
-        routes::{log_in, sign_up_via_invite, sign_up_with_new_org},
     },
     entities::{
         org::delete_own_org,
