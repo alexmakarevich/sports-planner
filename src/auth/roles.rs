@@ -72,3 +72,5 @@ pub async fn list_role_assignments(
 
     Ok((StatusCode::CREATED, axum::Json("ok".to_string())))
 }
+
+// TODO: pub async fn assign_role

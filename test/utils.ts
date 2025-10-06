@@ -66,6 +66,36 @@ export const signUpWithNewOrg = async ({
   throw new Error("Failed to retieve cookie from signup with new org");
 };
 
+export const signUpViaInvite = async ({
+  username,
+  password,
+  inviteId,
+}: {
+  username: string;
+  password: string;
+  inviteId: string;
+}): Promise<string> => {
+  const { status, data, headers } = await axios({
+    method: "POST",
+    url: API_URL + "/sign-up-via-invite/" + inviteId,
+    data: {
+      username,
+      password,
+    },
+    validateStatus: () => true,
+  });
+  console.log({ status, data, headers });
+
+  const cookies = headers["set-cookie"];
+  if (Array.isArray(cookies)) {
+    const specificCookie = cookies.find((c) => c.startsWith("session_id="));
+    if (specificCookie) {
+      return specificCookie;
+    }
+  }
+  throw new Error("Failed to retieve cookie from signup with new org");
+};
+
 export const makeTestAxios = (axiosInstance: AxiosInstance) => {
   return async (reqParams: AxiosRequestConfig) => {
     try {

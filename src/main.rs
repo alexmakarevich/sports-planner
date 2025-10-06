@@ -18,17 +18,17 @@ mod entities;
 mod utils;
 
 // TODO: don't expose internals in error responses (though they are helpful in the early stages of dev)
-// TODO: generically handle DB errors for extra-pretty code
-// soft-deletes via deleted_at (not super high-prio now)
+// TODO: soft-deletes via deleted_at (not super high-prio now)
 
 use crate::{
     auth::{
         middlewares::cookie_auth_middleware,
-        routes::{log_in, sign_up_with_new_org},
+        routes::{log_in, sign_up_via_invite, sign_up_with_new_org},
     },
     entities::{
         org::delete_own_org,
-        user::{create_user, delete_user_by_id, list_users},
+        service_invite::{create_service_invite, delete_service_invite_by_id},
+        user::{create_user, delete_own_user, delete_user_by_id, list_users},
     },
     utils::{api::AppState, initial_setup::initial_setup},
 };
@@ -86,6 +86,7 @@ async fn main() {
         Router::new()
             .route("/log-in", post(log_in))
             .route("/sign-up-with-new-org", post(sign_up_with_new_org))
+            .route("/sign-up-via-invite/{invite_id}", post(sign_up_via_invite))
             .with_state(state)
     }
 
@@ -94,6 +95,12 @@ async fn main() {
             .route("/users/list", get(list_users))
             .route("/users/create", post(create_user))
             .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
+            .route("/users/delete-own", delete(delete_own_user))
+            .route("/service-invites/create", post(create_service_invite))
+            .route(
+                "/service-invites/delete-by-id/{id}",
+                delete(delete_service_invite_by_id),
+            )
             .route("/orgs/delete-own", delete(delete_own_org))
             .layer(middleware::from_fn_with_state(
                 state.clone(),
@@ -119,7 +126,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn logging_middleware(req: Request, next: Next) -> (Response) {
+async fn logging_middleware(req: Request, next: Next) -> Response {
     info!(
         "request received, path: {}",
         req.uri().path_and_query().unwrap()

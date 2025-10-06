@@ -1,4 +1,4 @@
-import { logIn, logInCoductorUser, signUpWithNewOrg } from "./utils";
+import { logIn, signUpViaInvite, signUpWithNewOrg } from "./utils";
 import { Client } from "./utils/client";
 import { DateTime } from "luxon";
 import util from "util";
@@ -15,15 +15,16 @@ const testId = timestamp + randomUUID().slice(0, 4) + fileName;
 const regularUserName = "regular-" + testId;
 const regularUserPassword = regularUserName;
 
+const invitedUserName = "invited-" + testId;
+const invitedUserPassword = regularUserName;
+
 // TODO: ensure cleanup
 // TODO: log out
 
 describe.only(__filename, () => {
   it("does it all...", async () => {
-    const conductorCookie = await logInCoductorUser();
-
     const newOrgCookie = await signUpWithNewOrg({
-      username: "test-user-" + testId,
+      username: "admin-user-" + testId,
       password: "test-password-" + testId,
       orgTitle: "test-org-" + testId,
     });
@@ -81,6 +82,28 @@ describe.only(__filename, () => {
     expect(errorResponse?.data).toEqual(
       "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]"
     );
+
+    const serviceInviteId = await orgAdminClient.createServiceInvite();
+
+    const cookieFromInvite = await signUpViaInvite({
+      username: invitedUserName,
+      password: invitedUserPassword,
+      inviteId: serviceInviteId,
+    });
+
+    const invitedClient = new Client({
+      cookie: cookieFromInvite,
+      isTest: true,
+    });
+
+    const usersListed = await invitedClient.listUsers();
+    console.log({ usersListed });
+
+    await orgAdminClient.deleteServiceInviteById(serviceInviteId);
+
+    await invitedClient.deleteOwnUser();
+
+    // NORMAL CLEANUP
 
     await orgAdminClient.deleteUserById(newUserId);
 

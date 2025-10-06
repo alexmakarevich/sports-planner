@@ -3,6 +3,13 @@ import { API_URL } from "./env";
 import { makeTestAxios } from "../utils";
 import z from "zod";
 
+const listUsersResponseSchema = z.array(
+  z.object({
+    id: z.string(),
+    username: z.string(),
+  })
+);
+
 export class Client {
   cookie: string;
   axios: (x: AxiosRequestConfig) => AxiosPromise;
@@ -14,6 +21,8 @@ export class Client {
       ? makeTestAxios(axios.create({ headers: { Cookie: cookie } }))
       : axios.create({ headers: { Cookie: cookie } });
   }
+
+  // USER
 
   async createUser({
     username,
@@ -33,12 +42,49 @@ export class Client {
     return z.string().parse(data);
   }
 
+  async listUsers() {
+    const { status, data } = await this.axios({
+      url: API_URL + "/users/list",
+    });
+    return listUsersResponseSchema.parse(data);
+  }
+
   async deleteUserById(id: string) {
     await this.axios({
       method: "DELETE",
       url: API_URL + "/users/delete-by-id/" + id,
     });
   }
+
+  async deleteOwnUser() {
+    await this.axios({
+      method: "DELETE",
+      url: API_URL + "/users/delete-own",
+    });
+  }
+
+  // SERVICE INVITES
+
+  /**
+   *
+   * @returns {string} ID of invite
+   */
+  async createServiceInvite(): Promise<string> {
+    const { data } = await this.axios({
+      method: "POST",
+      url: API_URL + "/service-invites/create",
+    });
+    return z.string().parse(data);
+  }
+
+  async deleteServiceInviteById(id: string) {
+    await this.axios({
+      method: "DELETE",
+      url: API_URL + "/service-invites/delete-by-id/" + id,
+    });
+  }
+
+  // SElF-DELETE
 
   async deleteOwnOrg() {
     await this.axios({

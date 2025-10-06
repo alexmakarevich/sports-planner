@@ -1,4 +1,8 @@
-use axum::{http::StatusCode, response::Response, Json};
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
 use log::error;
 use sqlx::{Error, PgPool};
 
@@ -19,4 +23,13 @@ pub fn handle_unexpected_db_err(err: Error) -> (StatusCode, String) {
         StatusCode::INTERNAL_SERVER_ERROR,
         "Unexpected Error".to_string(),
     )
+}
+
+pub fn db_err_to_response(err: Error) -> Response {
+    error!("{}", err);
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Unexpected Error".to_string(),
+    )
+        .into_response()
 }

@@ -41,8 +41,6 @@ pub struct UserClean {
     pub username: String,
 }
 
-// TODO: sign_up_via_invite
-
 // TODO: disable entirely or conver to global superadmin fn
 pub async fn create_user(
     State(state): State<AppState>,
@@ -76,7 +74,6 @@ pub async fn create_user(
     }
 }
 
-// TODO: rights
 pub async fn delete_user_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -92,6 +89,37 @@ pub async fn delete_user_by_id(
     let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin])?;
 
     let query_result = sqlx::query!(r#"DELETE FROM users WHERE id = $1"#, id)
+        .execute(&state.pg_pool)
+        .await;
+
+    match query_result {
+        Err(e) => {
+            let error_response = serde_json::json!({
+            "status": "error",
+            "message": format!("Database error: { }", e),
+            })
+            .to_string();
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_response).into_response())
+        }
+        Ok(result_info) => {
+            if result_info.rows_affected() == 0 {
+                Err((
+                    StatusCode::NOT_ACCEPTABLE,
+                    "User with given ID does not exist - possibly already deleted".to_string(),
+                )
+                    .into_response())
+            } else {
+                Ok(StatusCode::NO_CONTENT)
+            }
+        }
+    }
+}
+
+pub async fn delete_own_user(
+    State(state): State<AppState>,
+    auth_ctx: Extension<AuthContext>,
+) -> Result<StatusCode, Response> {
+    let query_result = sqlx::query!(r#"DELETE FROM users WHERE id = $1"#, auth_ctx.user_id)
         .execute(&state.pg_pool)
         .await;
 

@@ -1,5 +1,5 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{header::SET_COOKIE, HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
@@ -13,7 +13,7 @@ use rand::{
 use serde::Deserialize;
 
 use crate::{
-    entities::user::UserClean,
+    entities::{service_invite, user::UserClean},
     utils::api::{handle_unexpected_db_err, AppState},
 };
 
@@ -34,6 +34,73 @@ pub struct SignUpWithNewOrgParams {
     pub username: String,
     pub password: String,
     pub org_title: String,
+}
+
+#[derive(Deserialize)]
+pub struct SignUpViaInviteParams {
+    pub username: String,
+    pub password: String,
+}
+
+struct InviteModel {
+    org_id: String,
+    id: String,
+}
+
+// pub async fn sign_up_via_invite
+
+pub async fn sign_up_via_invite(
+    State(state): State<AppState>,
+    Path(invite_id): Path<String>,
+    Json(payload): Json<SignUpViaInviteParams>,
+) -> Result<(StatusCode, HeaderMap, Json<String>), (StatusCode, String)> {
+    let mut tx = state
+        .pg_pool
+        .begin()
+        .await
+        .map_err(handle_unexpected_db_err)?;
+
+    let service_invite = sqlx::query_as!(
+        InviteModel,
+        r#"SELECT id, org_id FROM service_invites WHERE id = $1"#,
+        invite_id,
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(handle_unexpected_db_err)?;
+
+    let new_user = sqlx::query!(
+        r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
+        payload.username,
+        payload.password,
+        service_invite.org_id
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(handle_unexpected_db_err)?;
+
+    // Create new session
+    let session_id = Alphanumeric.sample_string(&mut rng(), 16);
+    // TODO: does the cookie have all the correct security settings by default?
+
+    // Save to DB
+    // TODO: session TTL in DB same as expires in browser
+    let _ = sqlx::query!(
+        "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+        session_id,
+        new_user.id
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(handle_unexpected_db_err)?;
+
+    let _ = tx.commit().await.map_err(handle_unexpected_db_err)?;
+
+    let cookie = Cookie::new("session_id", session_id.clone());
+    let mut headers = HeaderMap::new();
+    headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
+
+    Ok((StatusCode::CREATED, headers, Json(new_user.id)))
 }
 
 pub async fn sign_up_with_new_org(
