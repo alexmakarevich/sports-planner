@@ -45,7 +45,6 @@ pub struct SignUpViaInviteParams {
 
 struct InviteModel {
     org_id: String,
-    id: String,
 }
 
 // pub async fn sign_up_via_invite
@@ -63,7 +62,7 @@ pub async fn sign_up_via_invite(
 
     let service_invite = sqlx::query_as!(
         InviteModel,
-        r#"SELECT id, org_id FROM service_invites WHERE id = $1"#,
+        r#"SELECT org_id FROM service_invites WHERE id = $1"#,
         invite_id,
     )
     .fetch_one(&mut *tx)
