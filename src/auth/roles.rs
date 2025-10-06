@@ -50,26 +50,26 @@ pub fn check_user_roles(auth_ctx: &AuthContext, role_whitelist: &[Role]) -> Resu
     return Err((StatusCode::FORBIDDEN, error_text).into_response());
 }
 
-#[derive(FromRow)]
-pub struct RoleAssignment {
-    role: Role,
-}
+// #[derive(FromRow)]
+// pub struct RoleAssignment {
+//     role: Role,
+// }
 
-pub async fn list_role_assignments(
-    State(state): State<AppState>,
-    auth_ctx: Extension<AuthContext>,
-) -> ApiResult<String> {
-    let user_with_session = sqlx::query_as!(
-        RoleAssignment,
-        r#"SELECT 
-        role as "role: Role" 
-        FROM role_assignments"#
-    )
-    .fetch_one(&state.pg_pool)
-    .await
-    .map_err(handle_unexpected_db_err);
+// pub async fn list_role_assignments(
+//     State(state): State<AppState>,
+//     auth_ctx: Extension<AuthContext>,
+// ) -> ApiResult<String> {
+//     let user_with_session = sqlx::query_as!(
+//         RoleAssignment,
+//         r#"SELECT
+//         role as "role: Role"
+//         FROM role_assignments"#
+//     )
+//     .fetch_one(&state.pg_pool)
+//     .await
+//     .map_err(handle_unexpected_db_err);
 
-    Ok((StatusCode::CREATED, axum::Json("ok".to_string())))
-}
+//     Ok((StatusCode::CREATED, "ok"))
+// }
 
 // TODO: pub async fn assign_role

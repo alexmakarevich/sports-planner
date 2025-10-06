@@ -92,7 +92,7 @@ pub async fn delete_user_by_id(
             if result_info.rows_affected() == 0 {
                 Err((
                     StatusCode::NOT_ACCEPTABLE,
-                    "User with given ID does not exist - possibly already deleted".to_string(),
+                    "User with given ID does not exist - possibly already deleted",
                 )
                     .into_response())
             } else {
@@ -123,7 +123,7 @@ pub async fn delete_own_user(
             if result_info.rows_affected() == 0 {
                 Err((
                     StatusCode::NOT_ACCEPTABLE,
-                    "User with given ID does not exist - possibly already deleted".to_string(),
+                    "User with given ID does not exist - possibly already deleted",
                 )
                     .into_response())
             } else {

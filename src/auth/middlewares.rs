@@ -37,7 +37,7 @@ pub async fn cookie_auth_middleware(
         // this is an API middleware
         // for direct client-facing-routes, we may want to redirect to the login page (or we do it in the FE anyway)
 
-        return Err((StatusCode::UNAUTHORIZED, "Not logged in".to_string()).into_response());
+        return Err((StatusCode::UNAUTHORIZED, "Not logged in").into_response());
     };
 
     debug!("cookie found {}", cookie.value());
@@ -65,7 +65,7 @@ pub async fn cookie_auth_middleware(
         return (
             StatusCode::UNAUTHORIZED,
             [(SET_COOKIE, EXPIRED_EMPTY_COOKIE)],
-            "Unauthorized".to_string(),
+            "Unauthorized",
         )
             .into_response();
     })?;

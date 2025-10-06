@@ -184,7 +184,7 @@ pub async fn log_out(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 [(SET_COOKIE, EXPIRED_EMPTY_COOKIE)],
-                "Unexpected Error".to_string(),
+                "Unexpected Error",
             )
                 .into_response()
         })?;
@@ -211,7 +211,7 @@ pub async fn log_in(
     .await
     .map_err(|err| {
         error!("Log in error, failed to get user w/ password: {:?}", err);
-        return (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response();
+        return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     })?;
 
     // Create new session
@@ -240,7 +240,7 @@ pub async fn log_in(
 
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            "Unexpected error with login".to_string(),
+            "Unexpected error with login",
         )
             .into_response();
     })?;
@@ -249,5 +249,5 @@ pub async fn log_in(
 
     let mut headers = HeaderMap::new();
     headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
-    return Ok((StatusCode::OK, headers, "Login successful".to_string()).into_response());
+    return Ok((StatusCode::OK, headers, "Login successful").into_response());
 }

@@ -27,9 +27,5 @@ pub fn handle_unexpected_db_err(err: Error) -> (StatusCode, String) {
 
 pub fn db_err_to_response(err: Error) -> Response {
     error!("{}", err);
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "Unexpected Error".to_string(),
-    )
-        .into_response()
+    (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected Error").into_response()
 }
