@@ -4,13 +4,14 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use axum_extra::extract::cookie::Cookie;
+use axum_extra::extract::cookie::{Cookie, SameSite};
 use log::{debug, error};
 use rand::{
     distr::{Alphanumeric, SampleString},
     rng,
 };
 use serde::Deserialize;
+use time::{Duration, OffsetDateTime};
 
 use crate::{
     entities::{service_invite, user::UserClean},
@@ -81,7 +82,6 @@ pub async fn sign_up_via_invite(
 
     // Create new session
     let session_id = Alphanumeric.sample_string(&mut rng(), 16);
-    // TODO: does the cookie have all the correct security settings by default?
 
     // Save to DB
     // TODO: session TTL in DB same as expires in browser
@@ -96,7 +96,11 @@ pub async fn sign_up_via_invite(
 
     let _ = tx.commit().await.map_err(handle_unexpected_db_err)?;
 
-    let cookie = Cookie::new("session_id", session_id.clone());
+    let cookie = Cookie::build(("session_id", session_id.clone()))
+        .secure(true)
+        .http_only(true)
+        .same_site(SameSite::Strict)
+        .expires(OffsetDateTime::now_utc() + Duration::days(7));
     let mut headers = HeaderMap::new();
     headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
 
@@ -141,7 +145,6 @@ pub async fn sign_up_with_new_org(
 
     // Create new session
     let session_id = Alphanumeric.sample_string(&mut rng(), 16);
-    // TODO: does the cookie have all the correct security settings by default?
 
     // Save to DB
     // TODO: session TTL in DB same as expires in browser
@@ -155,8 +158,11 @@ pub async fn sign_up_with_new_org(
     .map_err(handle_unexpected_db_err)?;
 
     let _ = tx.commit().await.map_err(handle_unexpected_db_err)?;
-
-    let cookie = Cookie::new("session_id", session_id.clone());
+    let cookie = Cookie::build(("session_id", session_id.clone()))
+        .secure(true)
+        .http_only(true)
+        .same_site(SameSite::Strict)
+        .expires(OffsetDateTime::now_utc() + Duration::days(7));
     let mut headers = HeaderMap::new();
     headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
 
@@ -205,9 +211,11 @@ pub async fn log_in(
         Ok(user) => {
             // Create new session
             let session_id = Alphanumeric.sample_string(&mut rng(), 16);
-            // TODO: does the cookie have all the correct security settings by default?
-            let cookie = Cookie::new("session_id", session_id.clone());
-
+            let cookie = Cookie::build(("session_id", session_id.clone()))
+                .secure(true)
+                .http_only(true)
+                .same_site(SameSite::Strict)
+                .expires(OffsetDateTime::now_utc() + Duration::days(7));
             // Save to DB
             // TODO: session TTL in DB same as expires in browser
             let query_result = sqlx::query!(
