@@ -1,5 +1,5 @@
 import axios from "axios";
-import { logInCoductorUser, makeTestAxios } from "./utils";
+import { logInConductorUser, makeTestAxios } from "./utils";
 import { API_URL } from "./utils/env";
 
 let testCookie: string;
@@ -9,7 +9,7 @@ describe.skip(__filename, () => {
   //   const cookie = await logInCoductorUser();
   // });
   beforeAll(async () => {
-    testCookie = await logInCoductorUser();
+    testCookie = await logInConductorUser();
   });
 
   it("gets list of users", async () => {

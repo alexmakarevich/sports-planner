@@ -14,7 +14,7 @@ use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
 use crate::{
-    auth::utils::AuthContext,
+    auth::utils::{AuthContext, EXPIRED_EMPTY_COOKIE},
     entities::user::UserClean,
     utils::api::{db_err_to_response, handle_unexpected_db_err, AppState},
 };
@@ -54,7 +54,7 @@ pub async fn sign_up_via_invite(
     State(state): State<AppState>,
     Path(invite_id): Path<String>,
     Json(payload): Json<SignUpViaInviteParams>,
-) -> Result<(StatusCode, HeaderMap, Json<String>), (StatusCode, String)> {
+) -> Result<Response, (StatusCode, String)> {
     let mut tx = state
         .pg_pool
         .begin()
@@ -101,10 +101,13 @@ pub async fn sign_up_via_invite(
         .http_only(true)
         .same_site(SameSite::Strict)
         .expires(OffsetDateTime::now_utc() + Duration::days(7));
-    let mut headers = HeaderMap::new();
-    headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
 
-    Ok((StatusCode::CREATED, headers, Json(new_user.id)))
+    Ok((
+        StatusCode::CREATED,
+        [(SET_COOKIE, cookie.to_string())],
+        Json(new_user.id),
+    )
+        .into_response())
 }
 
 pub async fn sign_up_with_new_org(
@@ -176,8 +179,17 @@ pub async fn log_out(
     let _ = sqlx::query!("DELETE FROM sessions WHERE id = $1", auth_ctx.session_id,)
         .execute(&state.pg_pool)
         .await
-        .map_err(db_err_to_response)?;
-    Ok((StatusCode::NO_CONTENT).into_response())
+        .map_err(|err| {
+            error!("{}", err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [(SET_COOKIE, EXPIRED_EMPTY_COOKIE)],
+                "Unexpected Error".to_string(),
+            )
+                .into_response()
+        })?;
+
+    Ok((StatusCode::NO_CONTENT, [(SET_COOKIE, EXPIRED_EMPTY_COOKIE)]).into_response())
 }
 
 pub async fn log_in(

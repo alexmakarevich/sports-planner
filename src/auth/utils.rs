@@ -10,3 +10,6 @@ pub struct AuthContext {
 }
 
 // TODO: IMPORTANT! hash passwords
+
+pub const EXPIRED_EMPTY_COOKIE: &str =
+    "session_id=; HttpOnly; SameSite=Strict; Secure; Expires=1 Jan 1970 00:00:00 GMT";

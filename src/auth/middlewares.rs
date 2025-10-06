@@ -1,16 +1,16 @@
 use axum::{
     extract::{Request, State},
-    http::{header::SET_COOKIE, HeaderMap, StatusCode},
+    http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::cookie::CookieJar;
 use log::{debug, error};
 use sqlx::prelude::FromRow;
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 
 use crate::{
-    auth::{roles::Role, utils::AuthContext},
+    auth::{roles::Role, utils::AuthContext, utils::EXPIRED_EMPTY_COOKIE},
     AppState,
 };
 
@@ -59,16 +59,12 @@ pub async fn cookie_auth_middleware(
     .await
     // .map_err(handle_unexpected_db_err)?;
     .map_err(|err| {
-        // force-expire given bad cookie
-        let mut headers = HeaderMap::new();
-        let mut expired_cookie = cookie.clone();
-        expired_cookie.set_expires(OffsetDateTime::UNIX_EPOCH);
-        headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
         error!("{}", err);
+        // force-expire given bad cookie
 
         return (
             StatusCode::UNAUTHORIZED,
-            headers,
+            [(SET_COOKIE, EXPIRED_EMPTY_COOKIE)],
             "Unauthorized".to_string(),
         )
             .into_response();
@@ -84,9 +80,7 @@ pub async fn cookie_auth_middleware(
     };
 
     req.extensions_mut().insert(auth_context);
-    let mut res = next.run(req).await;
-    res.headers_mut()
-        .append(SET_COOKIE, cookie.to_string().parse().unwrap());
+    let res = next.run(req).await;
 
     Ok(res)
 }

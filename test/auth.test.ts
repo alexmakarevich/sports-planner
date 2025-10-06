@@ -1,7 +1,16 @@
-import { logIn, makeTestId, signUpViaInvite, signUpWithNewOrg } from "./utils";
+import {
+  logIn,
+  logInConductorUser,
+  makeTestId,
+  signUpViaInvite,
+  signUpWithNewOrg,
+} from "./utils";
 import { Client } from "./utils/client";
 import { randomUUID } from "crypto";
-import { AxiosError, AxiosResponse } from "axios";
+import axios, { AxiosError, AxiosResponse } from "axios";
+import { DateTime } from "luxon";
+import { API_URL } from "./utils/env";
+import { log } from "console";
 
 const { testId } = makeTestId();
 
@@ -14,7 +23,7 @@ const invitedUserPassword = regularUserName;
 // TODO: ensure cleanup
 // TODO: log out
 
-describe.only(__filename, () => {
+describe(__filename, () => {
   it("denies req with no cookie", async () => {
     // @ts-expect-error
     const c = new Client({ cookie: undefined });
@@ -38,5 +47,64 @@ describe.only(__filename, () => {
         },
       });
     }
+  });
+
+  it("performs cookie lifecycle", async () => {
+    const conductorCookie = await logInConductorUser();
+    console.log(conductorCookie);
+    expect(conductorCookie.slice(0, 11)).toEqual("session_id=");
+    expect(conductorCookie.slice(11, 27)).not.toMatch(";");
+    expect(conductorCookie.slice(27, 72)).toEqual(
+      "; HttpOnly; SameSite=Strict; Secure; Expires="
+    );
+    const expirationString = conductorCookie.slice(72);
+
+    const expirationDate = DateTime.fromRFC2822(expirationString);
+
+    if (!expirationDate.isValid) {
+      throw new Error("invalid date");
+    }
+
+    const diff = expirationDate.diffNow("day", {}).days;
+
+    expect(Math.round(diff)).toEqual(7);
+
+    const client = new Client({ cookie: conductorCookie });
+    await client.logOut();
+
+    const { status, data, headers } = await axios({
+      url: API_URL + "/users/list",
+      headers: {
+        Cookie: conductorCookie,
+      },
+      validateStatus: () => true,
+    });
+
+    log({ status, data, headers });
+
+    expect(status).toEqual(401);
+    expect(data).toEqual("Unauthorized");
+
+    const cookies = headers["set-cookie"];
+
+    const unsetSessionCookie = cookies?.find((c) =>
+      c.startsWith("session_id=")
+    );
+
+    if (!unsetSessionCookie) {
+      throw new Error("no unset cookie returned");
+    }
+
+    expect(unsetSessionCookie.slice(0, 56)).toEqual(
+      "session_id=; HttpOnly; SameSite=Strict; Secure; Expires="
+    );
+
+    const expirationStringOfUnsetCookie = unsetSessionCookie.slice(57);
+
+    const expirationDateOfUnsetCookie = new Date(
+      expirationStringOfUnsetCookie
+    ).valueOf();
+
+    expect(expirationDateOfUnsetCookie).toEqual(0);
   });
 });

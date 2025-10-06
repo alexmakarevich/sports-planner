@@ -33,7 +33,7 @@ export const logIn = async ({
   throw new Error("Failed to retieve cookie from login");
 };
 
-export const logInCoductorUser = () =>
+export const logInConductorUser = () =>
   logIn({
     username: CONDUCTOR_USERNAME,
     password: CONDUCTOR_PASSWORD,
