@@ -45,7 +45,6 @@ pub fn check_user_roles(auth_ctx: &AuthContext, role_whitelist: &[Role]) -> Resu
             return Ok(());
         }
     }
-    // TODO: is the error text actually getting sent back?
     let error_text = format!("Access denied. Needs one of roles: {:?}", role_whitelist);
     error!("ROLE CHECK FAILED: {}", error_text);
     return Err((StatusCode::UNAUTHORIZED, error_text).into_response());
