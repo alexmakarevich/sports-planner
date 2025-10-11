@@ -4,6 +4,11 @@ import { DateTime } from "luxon";
 import util from "util";
 import { randomUUID } from "crypto";
 import path from "path";
+import z from "zod";
+
+const loginResSchema = z.string();
+
+export type LoginResult = { ownId: string; cookie: string };
 
 export const logIn = async ({
   username,
@@ -11,7 +16,7 @@ export const logIn = async ({
 }: {
   username: string;
   password: string;
-}): Promise<string> => {
+}): Promise<LoginResult> => {
   const { status, data, headers } = await axios({
     method: "POST",
     url: API_URL + "/log-in",
@@ -22,12 +27,13 @@ export const logIn = async ({
     validateStatus: () => true,
   });
 
-  console.log({ status, data, headers });
+  const ownId = loginResSchema.parse(data);
+
   const cookies = headers["set-cookie"];
   if (Array.isArray(cookies)) {
-    const specificCookie = cookies.find((c) => c.startsWith("session_id="));
-    if (specificCookie) {
-      return specificCookie;
+    const cookie = cookies.find((c) => c.startsWith("session_id="));
+    if (cookie) {
+      return { ownId, cookie };
     }
   }
   throw new Error("Failed to retieve cookie from login");
@@ -47,7 +53,7 @@ export const signUpWithNewOrg = async ({
   username: string;
   password: string;
   orgTitle: string;
-}): Promise<string> => {
+}): Promise<LoginResult> => {
   const { status, data, headers } = await axios({
     method: "POST",
     url: API_URL + "/sign-up-with-new-org",
@@ -60,11 +66,13 @@ export const signUpWithNewOrg = async ({
   });
   console.log({ status, data, headers });
 
+  const ownId = loginResSchema.parse(data);
+
   const cookies = headers["set-cookie"];
   if (Array.isArray(cookies)) {
-    const specificCookie = cookies.find((c) => c.startsWith("session_id="));
-    if (specificCookie) {
-      return specificCookie;
+    const cookie = cookies.find((c) => c.startsWith("session_id="));
+    if (cookie) {
+      return { ownId, cookie };
     }
   }
   throw new Error("Failed to retieve cookie from signup with new org");
@@ -78,7 +86,7 @@ export const signUpViaInvite = async ({
   username: string;
   password: string;
   inviteId: string;
-}): Promise<string> => {
+}): Promise<LoginResult> => {
   const { status, data, headers } = await axios({
     method: "POST",
     url: API_URL + "/sign-up-via-invite/" + inviteId,
@@ -90,11 +98,13 @@ export const signUpViaInvite = async ({
   });
   console.log({ status, data, headers });
 
+  const ownId = loginResSchema.parse(data);
+
   const cookies = headers["set-cookie"];
   if (Array.isArray(cookies)) {
-    const specificCookie = cookies.find((c) => c.startsWith("session_id="));
-    if (specificCookie) {
-      return specificCookie;
+    const cookie = cookies.find((c) => c.startsWith("session_id="));
+    if (cookie) {
+      return { ownId, cookie };
     }
   }
   throw new Error("Failed to retieve cookie from signup with new org");

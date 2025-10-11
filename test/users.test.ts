@@ -9,7 +9,7 @@ describe.skip(__filename, () => {
   //   const cookie = await logInCoductorUser();
   // });
   beforeAll(async () => {
-    testCookie = await logInConductorUser();
+    testCookie = (await logInConductorUser()).cookie;
   });
 
   it("gets list of users", async () => {

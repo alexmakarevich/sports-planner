@@ -24,6 +24,7 @@ use crate::{
     auth::{
         auth_routes::{log_in, log_out, sign_up_via_invite, sign_up_with_new_org},
         middlewares::cookie_auth_middleware,
+        roles::{assign_role, list_own_role_assignments, list_role_assignments, unassign_role},
     },
     entities::{
         org::delete_own_org,
@@ -97,12 +98,16 @@ async fn main() {
             .route("/users/create", post(create_user))
             .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
             .route("/users/delete-own", delete(delete_own_user))
-            .route("/service-invites/create", post(create_service_invite))
+            .route("/invites-to-org/create", post(create_service_invite))
             .route(
-                "/service-invites/delete-by-id/{id}",
+                "/invites-to-org/delete-by-id/{id}",
                 delete(delete_service_invite_by_id),
             )
             .route("/orgs/delete-own", delete(delete_own_org))
+            .route("/roles/list", get(list_role_assignments))
+            .route("/roles/list-own", get(list_own_role_assignments))
+            .route("/roles/assign", post(assign_role))
+            .route("/roles/unassign", delete(unassign_role))
             .layer(middleware::from_fn_with_state(
                 state.clone(),
                 cookie_auth_middleware,

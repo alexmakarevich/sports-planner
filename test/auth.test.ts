@@ -21,7 +21,6 @@ const invitedUserName = "invited-" + testId;
 const invitedUserPassword = regularUserName;
 
 // TODO: ensure cleanup
-// TODO: log out
 
 describe(__filename, () => {
   it("denies req with no cookie", async () => {
@@ -50,7 +49,7 @@ describe(__filename, () => {
   });
 
   it("performs cookie lifecycle", async () => {
-    const conductorCookie = await logInConductorUser();
+    const { cookie: conductorCookie, ownId } = await logInConductorUser();
     console.log(conductorCookie);
     expect(conductorCookie.slice(0, 11)).toEqual("session_id=");
     expect(conductorCookie.slice(11, 27)).not.toMatch(";");
@@ -69,7 +68,7 @@ describe(__filename, () => {
 
     expect(Math.round(diff)).toEqual(7);
 
-    const client = new Client({ cookie: conductorCookie });
+    const client = new Client({ cookie: conductorCookie, ownId });
     await client.logOut();
 
     const { status, data, headers } = await axios({

@@ -249,5 +249,5 @@ pub async fn log_in(
 
     let mut headers = HeaderMap::new();
     headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());
-    return Ok((StatusCode::OK, headers, "Login successful").into_response());
+    return Ok((StatusCode::OK, headers, user.id).into_response());
 }
