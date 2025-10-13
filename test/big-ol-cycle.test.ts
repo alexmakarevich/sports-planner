@@ -19,23 +19,26 @@ const invitedUserPassword = regularUserName;
 
 describe(__filename, () => {
   it("does it all...", async () => {
-    const newOrgAdminDetails = await signUpWithNewOrg({
+    const neworg_adminDetails = await signUpWithNewOrg({
       username: adminUsername,
       password: adminPassword,
       orgTitle: "test-org-" + testId,
     });
 
-    const orgAdminClient = new Client({ ...newOrgAdminDetails, isTest: true });
-
-    const ownRolesOfAdmin = await orgAdminClient.listOwnRoles();
-    expect(ownRolesOfAdmin).toEqual(["OrgAdmin"]);
-
-    const allRoleAssignments = await orgAdminClient.listRoles();
-    expect(allRoleAssignments).toEqual({
-      [orgAdminClient.ownId]: ["OrgAdmin"],
+    const org_adminClient = new Client({
+      ...neworg_adminDetails,
+      isTest: true,
     });
 
-    const newUserId = await orgAdminClient.createUser({
+    const ownRolesOfAdmin = await org_adminClient.listOwnRoles();
+    expect(ownRolesOfAdmin).toEqual(["org_admin"]);
+
+    const allRoleAssignments = await org_adminClient.listRoles();
+    expect(allRoleAssignments).toEqual({
+      [org_adminClient.ownId]: ["org_admin"],
+    });
+
+    const newUserId = await org_adminClient.createUser({
       username: regularUserName,
       password: regularUserPassword,
     });
@@ -60,7 +63,7 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]",
+        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
       },
     });
 
@@ -69,16 +72,16 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]",
+        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
       },
     });
 
-    const users = await orgAdminClient.listUsers();
+    const users = await org_adminClient.listUsers();
     expect(users.length).toEqual(2);
     expect(users).toEqual(
       expect.arrayContaining([
         {
-          id: orgAdminClient.ownId,
+          id: org_adminClient.ownId,
           username: adminUsername,
         },
         {
@@ -88,16 +91,16 @@ describe(__filename, () => {
       ])
     );
 
-    await orgAdminClient.assignRole({
+    await org_adminClient.assignRole({
       user_id: regularUserClient.ownId,
-      role: "OrgAdmin",
+      role: "org_admin",
     });
 
-    expect(regularUserClient.listOwnRoles()).resolves.toEqual(["OrgAdmin"]);
+    expect(regularUserClient.listOwnRoles()).resolves.toEqual(["org_admin"]);
 
-    expect(orgAdminClient.listRoles()).resolves.toEqual({
-      [orgAdminClient.ownId]: ["OrgAdmin"],
-      [regularUserClient.ownId]: ["OrgAdmin"],
+    expect(org_adminClient.listRoles()).resolves.toEqual({
+      [org_adminClient.ownId]: ["org_admin"],
+      [regularUserClient.ownId]: ["org_admin"],
     });
 
     const id = await regularUserClient.createUser({
@@ -106,14 +109,14 @@ describe(__filename, () => {
     });
     await regularUserClient.deleteUserById(id);
 
-    await orgAdminClient.unassignRole({
+    await org_adminClient.unassignRole({
       user_id: regularUserClient.ownId,
-      role: "OrgAdmin",
+      role: "org_admin",
     });
 
     expect(regularUserClient.listOwnRoles()).resolves.toEqual([]);
-    expect(orgAdminClient.listRoles()).resolves.toMatchObject({
-      [orgAdminClient.ownId]: ["OrgAdmin"],
+    expect(org_adminClient.listRoles()).resolves.toMatchObject({
+      [org_adminClient.ownId]: ["org_admin"],
       // [regularUserClient.ownId]: NONE,
     });
 
@@ -125,7 +128,7 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]",
+        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
       },
     });
 
@@ -134,13 +137,13 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [OrgAdmin, SuperAdmin]",
+        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
       },
     });
 
     //
 
-    const serviceInviteId = await orgAdminClient.createServiceInvite();
+    const serviceInviteId = await org_adminClient.createServiceInvite();
 
     const inviteUserDetails = await signUpViaInvite({
       username: invitedUserName,
@@ -162,14 +165,37 @@ describe(__filename, () => {
       },
     });
 
-    await orgAdminClient.deleteServiceInviteById(serviceInviteId);
+    // Failed to deserialize the JSON body into the target type: my_type: unknown variant `orange`, expected one of `Orange`, `Apple`
+
+    // creating game
+
+    await org_adminClient.assignRole({
+      user_id: regularUserClient.ownId,
+      role: "coach",
+    });
+
+    await org_adminClient.assignRole({
+      user_id: regularUserClient.ownId,
+      role: "player",
+    });
+
+    const newGgameId = await org_adminClient.createGame({
+      opponent: "some-opp",
+      start: new Date(),
+      end: new Date(),
+      location: "some place with address",
+      location_kind: "home",
+      invited_roles: ["player", "coach"],
+    });
+
+    await org_adminClient.deleteServiceInviteById(serviceInviteId);
 
     await invitedClient.deleteOwnUser();
 
     // NORMAL CLEANUP
 
-    await orgAdminClient.deleteUserById(newUserId);
+    await org_adminClient.deleteUserById(newUserId);
 
-    await orgAdminClient.deleteOwnOrg();
+    await org_adminClient.deleteOwnOrg();
   });
 });

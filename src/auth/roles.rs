@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Write};
 
 use axum::{
     extract::{Query, State},
@@ -25,6 +25,7 @@ use crate::{
 // hardcoding roles, since they shouldn't be adjustable in the UI
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, Display, EnumString)]
 #[sqlx(type_name = "user_roles", rename_all = "snake_case")] // must match the Postgres type name
+#[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum Role {
     SuperAdmin,
@@ -47,7 +48,24 @@ pub fn check_user_roles(auth_ctx: &AuthContext, role_whitelist: &[Role]) -> Resu
             return Ok(());
         }
     }
-    let error_text = format!("Access denied. Needs one of roles: {:?}", role_whitelist);
+    let mut printable_whitelist = String::new();
+
+    for (i, role) in role_whitelist.iter().enumerate() {
+        if i > 0 {
+            printable_whitelist.push_str(", ");
+        }
+        write!(
+            &mut printable_whitelist,
+            "{}",
+            role.to_string().to_lowercase()
+        )
+        .unwrap();
+    }
+
+    let error_text = format!(
+        "Access denied. Needs one of roles: [{}]",
+        printable_whitelist
+    );
     error!("ROLE CHECK FAILED: {}", error_text);
     return Err((StatusCode::FORBIDDEN, error_text).into_response());
 }

@@ -19,8 +19,15 @@ const listUsersResponseSchema = z.array(
   })
 );
 
-export type Role = "SuperAdmin" | "OrgAdmin" | "Coach" | "Player";
-export const roleSchema = z.enum(["SuperAdmin", "OrgAdmin", "Coach", "Player"]);
+export type Role = "super_admin" | "org_admin" | "coach" | "player";
+export const roleSchema = z.enum([
+  "super_admin",
+  "org_admin",
+  "coach",
+  "player",
+]);
+
+export type LocationKind = "home" | "away" | "other";
 
 const listRolesResSchema = z.record(z.string(), z.array(roleSchema));
 
@@ -140,6 +147,38 @@ export class Client {
       method: "DELETE",
       url: API_URL + "/invites-to-org/delete-by-id/" + id,
     });
+  }
+
+  // GAME
+
+  async createGame({
+    opponent,
+    start,
+    end,
+    location,
+    location_kind,
+    invited_roles,
+  }: {
+    opponent: string;
+    start: Date;
+    end?: Date;
+    location: string;
+    location_kind: LocationKind;
+    invited_roles: Role[];
+  }) {
+    const { data } = await this.axios({
+      method: "POST",
+      url: API_URL + "/games/create",
+      data: {
+        opponent,
+        start: start.toISOString(),
+        end: end?.toISOString(),
+        location,
+        location_kind,
+        invited_roles,
+      },
+    });
+    return z.string().parse(data);
   }
 
   // LOG-OUT

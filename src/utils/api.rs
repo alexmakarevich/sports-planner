@@ -29,3 +29,7 @@ pub fn db_err_to_response(err: Error) -> Response {
     error!("{}", err);
     (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected Error").into_response()
 }
+
+pub struct JustId {
+    id: String,
+}

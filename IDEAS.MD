@@ -39,3 +39,12 @@ user may be assigned to multiple orgs (would need an n:n relationship), but a us
 - roie-based invites
   - should be suitable for games, trainings, ref assmts
   - each invite is itself static, but the list must be updated once a new user gets a role relevant to this event, or a previoussly invited user loses that role
+- are invites and their logic actually generic???
+  - should we just invite to raw events??
+  - would make the tables quite a bit simpler
+  - any reason why invite status could be difft based on event type???
+    if so, couldn't it be nicely solved within app logic?
+
+# quality of life
+
+- check input string lengths

@@ -1,0 +1,132 @@
+use std::iter;
+
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+use log::debug;
+use serde::{Deserialize, Serialize};
+use sqlx::{Postgres, QueryBuilder};
+
+use sqlx::{FromRow, Type};
+use strum_macros::{Display, EnumString};
+
+use crate::{
+    auth::{
+        roles::{check_user_roles, Role},
+        utils::AuthContext,
+    },
+    utils::api::{db_err_to_response, ApiResult},
+    AppState, JustId,
+};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Extension, Json,
+};
+
+// user from DB wihtout security and unnecessary util fields
+#[derive(Deserialize)]
+pub struct CreateGamePayload {
+    pub opponent: String,
+    pub start: DateTime<Utc>,
+    pub end: Option<DateTime<Utc>>,
+    pub location: String,
+    pub location_kind: LocationKind, // home|away|other
+    pub invited_roles: Vec<Role>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, Display, EnumString)]
+#[sqlx(type_name = "location_kind", rename_all = "snake_case")] // must match the Postgres type name
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum LocationKind {
+    Home,
+    Away,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, Display, EnumString)]
+#[sqlx(type_name = "game_invite_status", rename_all = "snake_case")] // must match the Postgres type name
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum InviteStatus {
+    Pending,
+    Accepted,
+    Declined,
+    Unsure,
+    Uninvited,
+}
+
+pub async fn create_game(
+    State(state): State<AppState>,
+    auth_ctx: Extension<AuthContext>,
+    Json(payload): Json<CreateGamePayload>,
+) -> Result<Response, Response> {
+    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin, Role::Coach])?;
+
+    let mut tx = state.pg_pool.begin().await.map_err(db_err_to_response)?;
+
+    let end_conv = payload.end.map(|e| e.naive_utc());
+
+    let new_event = sqlx::query!(
+        r#"INSERT INTO events (start_time, stop_time) VALUES ($1, $2) RETURNING id"#,
+        payload.start.naive_utc(),
+        end_conv,
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db_err_to_response)?;
+
+    let new_game = sqlx::query!(
+        r#"INSERT INTO games (opponent, location, location_kind, event_id, invited_roles) VALUES ($1, $2, $3, $4, $5) RETURNING id"#,
+        payload.opponent,
+        payload.location,
+        payload.location_kind as LocationKind,
+        new_event.id,
+        payload.invited_roles.clone() as Vec<Role>
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db_err_to_response)?;
+
+    let users_to_invite = sqlx::query_as!(
+        JustId,
+        r#"SELECT u.id FROM users u
+        JOIN role_assignments ra ON ra.user_id = u.id
+        WHERE u.org_id = $1
+        AND ra.role = ANY($2)
+        ORDER by u.username"#,
+        auth_ctx.org_id,
+        payload.invited_roles as Vec<Role>
+    )
+    .fetch_all(&state.pg_pool)
+    .await
+    .map_err(db_err_to_response)?;
+
+    // ensuring, one user only gets one invite
+    let mut user_ids: Vec<String> = users_to_invite.iter().map(|u| u.id.clone()).collect();
+    user_ids.sort_unstable();
+    user_ids.dedup();
+    let game_ids: Vec<String> = iter::repeat(new_game.id.clone())
+        .take(user_ids.len())
+        .collect();
+    let statuses: Vec<InviteStatus> = iter::repeat(InviteStatus::Pending)
+        .take(user_ids.len())
+        .collect();
+
+    sqlx::query!(
+        r#"
+        INSERT INTO game_invites (user_id, game_id, status)
+        SELECT * FROM UNNEST($1::text[], $2::text[], $3::game_invite_status[])
+    "#,
+        &user_ids,
+        &game_ids,
+        &statuses as &Vec<InviteStatus>
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(db_err_to_response)?;
+
+    let _ = tx.commit().await.map_err(db_err_to_response)?;
+
+    Ok((StatusCode::CREATED, Json(&new_game.id)).into_response())
+}

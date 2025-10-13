@@ -27,6 +27,7 @@ use crate::{
         roles::{assign_role, list_own_role_assignments, list_role_assignments, unassign_role},
     },
     entities::{
+        game::create_game,
         org::delete_own_org,
         service_invite::{create_service_invite, delete_service_invite_by_id},
         user::{create_user, delete_own_user, delete_user_by_id, list_users},
@@ -104,10 +105,14 @@ async fn main() {
                 delete(delete_service_invite_by_id),
             )
             .route("/orgs/delete-own", delete(delete_own_org))
+            //
             .route("/roles/list", get(list_role_assignments))
             .route("/roles/list-own", get(list_own_role_assignments))
             .route("/roles/assign", post(assign_role))
             .route("/roles/unassign", delete(unassign_role))
+            //
+            .route("/games/create", post(create_game))
+            //
             .layer(middleware::from_fn_with_state(
                 state.clone(),
                 cookie_auth_middleware,
