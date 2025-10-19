@@ -48,3 +48,4 @@ user may be assigned to multiple orgs (would need an n:n relationship), but a us
 # quality of life
 
 - check input string lengths
+- auto-update create_at column in every table?

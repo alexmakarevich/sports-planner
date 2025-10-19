@@ -25,30 +25,30 @@ describe(__filename, () => {
       orgTitle: "test-org-" + testId,
     });
 
-    const org_adminClient = new Client({
+    const orgAdminClient = new Client({
       ...neworg_adminDetails,
       isTest: true,
     });
 
-    const ownRolesOfAdmin = await org_adminClient.listOwnRoles();
+    const ownRolesOfAdmin = await orgAdminClient.listOwnRoles();
     expect(ownRolesOfAdmin).toEqual(["org_admin"]);
 
-    const allRoleAssignments = await org_adminClient.listRoles();
+    const allRoleAssignments = await orgAdminClient.listRoles();
     expect(allRoleAssignments).toEqual({
-      [org_adminClient.ownId]: ["org_admin"],
+      [orgAdminClient.ownId]: ["org_admin"],
     });
 
-    const newUserId = await org_adminClient.createUser({
+    const newUserId = await orgAdminClient.createUser({
       username: regularUserName,
       password: regularUserPassword,
     });
 
-    const regularUserDetails = await logIn({
+    let regularUserDetails = await logIn({
       username: regularUserName,
       password: regularUserPassword,
     });
 
-    const regularUserClient = new Client({
+    let regularUserClient = new Client({
       ...regularUserDetails,
       isTest: true,
     });
@@ -76,12 +76,12 @@ describe(__filename, () => {
       },
     });
 
-    const users = await org_adminClient.listUsers();
+    const users = await orgAdminClient.listUsers();
     expect(users.length).toEqual(2);
     expect(users).toEqual(
       expect.arrayContaining([
         {
-          id: org_adminClient.ownId,
+          id: orgAdminClient.ownId,
           username: adminUsername,
         },
         {
@@ -91,15 +91,15 @@ describe(__filename, () => {
       ])
     );
 
-    await org_adminClient.assignRole({
+    await orgAdminClient.assignRole({
       user_id: regularUserClient.ownId,
       role: "org_admin",
     });
 
     expect(regularUserClient.listOwnRoles()).resolves.toEqual(["org_admin"]);
 
-    expect(org_adminClient.listRoles()).resolves.toEqual({
-      [org_adminClient.ownId]: ["org_admin"],
+    expect(orgAdminClient.listRoles()).resolves.toEqual({
+      [orgAdminClient.ownId]: ["org_admin"],
       [regularUserClient.ownId]: ["org_admin"],
     });
 
@@ -109,14 +109,14 @@ describe(__filename, () => {
     });
     await regularUserClient.deleteUserById(id);
 
-    await org_adminClient.unassignRole({
+    await orgAdminClient.unassignRole({
       user_id: regularUserClient.ownId,
       role: "org_admin",
     });
 
     expect(regularUserClient.listOwnRoles()).resolves.toEqual([]);
-    expect(org_adminClient.listRoles()).resolves.toMatchObject({
-      [org_adminClient.ownId]: ["org_admin"],
+    expect(orgAdminClient.listRoles()).resolves.toMatchObject({
+      [orgAdminClient.ownId]: ["org_admin"],
       // [regularUserClient.ownId]: NONE,
     });
 
@@ -143,7 +143,7 @@ describe(__filename, () => {
 
     //
 
-    const serviceInviteId = await org_adminClient.createServiceInvite();
+    const serviceInviteId = await orgAdminClient.createServiceInvite();
 
     const inviteUserDetails = await signUpViaInvite({
       username: invitedUserName,
@@ -169,17 +169,32 @@ describe(__filename, () => {
 
     // creating game
 
-    await org_adminClient.assignRole({
+    await orgAdminClient.assignRole({
       user_id: regularUserClient.ownId,
       role: "coach",
     });
 
-    await org_adminClient.assignRole({
+    await orgAdminClient.assignRole({
       user_id: regularUserClient.ownId,
       role: "player",
     });
 
-    const newGgameId = await org_adminClient.createGame({
+    // re-login after logout
+    regularUserDetails = await logIn({
+      username: regularUserName,
+      password: regularUserPassword,
+    });
+
+    regularUserClient = new Client({
+      ...regularUserDetails,
+      isTest: true,
+    });
+
+    let regularUserInvites = await regularUserClient.listOwnInvites();
+
+    expect(regularUserInvites).toEqual([]);
+
+    const newGameId = await orgAdminClient.createGame({
       opponent: "some-opp",
       start: new Date(),
       end: new Date(),
@@ -188,14 +203,108 @@ describe(__filename, () => {
       invited_roles: ["player", "coach"],
     });
 
-    await org_adminClient.deleteServiceInviteById(serviceInviteId);
+    regularUserInvites = await regularUserClient.listOwnInvites();
+    expect(regularUserInvites.length).toEqual(1);
+    expect(regularUserInvites).toMatchObject([
+      {
+        game_id: newGameId,
+        opponent: "some-opp",
+        response: "pending",
+      },
+    ]);
+    const firstInviteId = regularUserInvites[0].invite_id;
+
+    const invitesToFirstGame = await orgAdminClient.listInvitesToGame(
+      newGameId
+    );
+
+    expect(invitesToFirstGame).toEqual([
+      {
+        invite_id: firstInviteId,
+        user_id: regularUserClient.ownId,
+        username: regularUserName,
+        response: "pending",
+      },
+    ]);
+
+    await regularUserClient.respondToInvite({
+      invite_id: firstInviteId,
+      response: "unsure",
+    });
+
+    await expect(orgAdminClient.listInvitesToGame(newGameId)).resolves.toEqual([
+      {
+        invite_id: firstInviteId,
+        user_id: regularUserClient.ownId,
+        username: regularUserName,
+        response: "unsure",
+      },
+    ]);
+
+    await regularUserClient.respondToInvite({
+      invite_id: firstInviteId,
+      response: "declined",
+    });
+
+    await expect(orgAdminClient.listInvitesToGame(newGameId)).resolves.toEqual([
+      {
+        invite_id: firstInviteId,
+        user_id: regularUserClient.ownId,
+        username: regularUserName,
+        response: "declined",
+      },
+    ]);
+
+    await regularUserClient.respondToInvite({
+      invite_id: firstInviteId,
+      response: "accepted",
+    });
+
+    await expect(orgAdminClient.listInvitesToGame(newGameId)).resolves.toEqual([
+      {
+        invite_id: firstInviteId,
+        user_id: regularUserClient.ownId,
+        username: regularUserName,
+        response: "accepted",
+      },
+    ]);
+
+    await expect(
+      regularUserClient.respondToInvite({
+        invite_id: firstInviteId,
+        // @ts-expect-error
+        response: "pending",
+      })
+    ).rejects.toMatchObject({
+      response: {
+        status: 422,
+        data: /"Failed to deserialize the JSON body into the target type: response: unknown variant `pending`, expected one of `accepted`, `declined`/,
+      },
+    });
+
+    await expect(
+      regularUserClient.respondToInvite({
+        invite_id: firstInviteId,
+        // @ts-expect-error
+        response: "something-else",
+      })
+    ).rejects.toMatchObject({
+      response: {
+        status: 422,
+        data: /"Failed to deserialize the JSON body into the target type: response: unknown variant `something-else`, expected one of `accepted`, `declined`/,
+      },
+    });
+
+    // SERVICE INVITE CLEANUP
+
+    await orgAdminClient.deleteServiceInviteById(serviceInviteId);
 
     await invitedClient.deleteOwnUser();
 
     // NORMAL CLEANUP
 
-    await org_adminClient.deleteUserById(newUserId);
+    await orgAdminClient.deleteUserById(newUserId);
 
-    await org_adminClient.deleteOwnOrg();
+    await orgAdminClient.deleteOwnOrg();
   });
 });

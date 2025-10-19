@@ -14,25 +14,28 @@ CREATE TYPE location_kind AS ENUM ('home', 'away', 'other');
 CREATE TABLE IF NOT EXISTS games (
     id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
 
+    org_id  VARCHAR(36) NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     opponent VARCHAR(255) NOT NULL,
     location VARCHAR(255) NOT NULL,
     location_kind location_kind NOT NULL,
 
-    event_id VARCHAR(36) NOT NULL REFERENCES events(id) ON DELETE RESTRICT,
+    -- an event is a synthetic entity that carries the generic info.
+    -- exactly one generic event is attarched to a specific event (like a game)
+    event_id VARCHAR(36) UNIQUE NOT NULL REFERENCES events(id) ON DELETE RESTRICT,
     invited_roles user_roles[] NOT NULL DEFAULT '{}'::user_roles[],
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TYPE game_invite_status AS ENUM ('pending', 'accepted', 'declined', 'unsure', 'uninvited');
+CREATE TYPE game_invite_response AS ENUM ('pending', 'accepted', 'declined', 'unsure');
 
-CREATE TABLE IF NOT EXISTS game_invites (
+CREATE TABLE IF NOT EXISTS game_invite (
     id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
 
     game_id  VARCHAR(36) NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     user_id  VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status game_invite_status NOT NULL,
+    response game_invite_response NOT NULL,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

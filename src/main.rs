@@ -28,6 +28,7 @@ use crate::{
     },
     entities::{
         game::create_game,
+        game_invite::{answer_invite_to_game, list_invites_to_game, list_own_game_invites},
         org::delete_own_org,
         service_invite::{create_service_invite, delete_service_invite_by_id},
         user::{create_user, delete_own_user, delete_user_by_id, list_users},
@@ -112,6 +113,13 @@ async fn main() {
             .route("/roles/unassign", delete(unassign_role))
             //
             .route("/games/create", post(create_game))
+            //
+            .route("/game-invites/list-own", get(list_own_game_invites))
+            .route(
+                "/game-invites/list-to-game/{game_id}",
+                get(list_invites_to_game),
+            )
+            .route("/game-invites/respond", post(answer_invite_to_game))
             //
             .layer(middleware::from_fn_with_state(
                 state.clone(),

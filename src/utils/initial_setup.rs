@@ -1,5 +1,5 @@
 use log::error;
-use sqlx::{PgPool, Pool, Postgres};
+use sqlx::{Pool, Postgres};
 
 pub async fn initial_setup(pool: &Pool<Postgres>) {
     let initial_org_title = dotenv::var("INITIAL_ORG").expect("INITIAL_ORG is not configured");

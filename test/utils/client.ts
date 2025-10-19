@@ -181,6 +181,36 @@ export class Client {
     return z.string().parse(data);
   }
 
+  // EVENT INVITE
+
+  async listOwnInvites() {
+    const { data } = await this.axios({
+      method: "GET",
+      url: API_URL + "/game-invites/list-own",
+    });
+    return listOwnInvitesResSchema.parse(data);
+  }
+
+  async listInvitesToGame(game_id: string) {
+    const { data } = await this.axios({
+      method: "GET",
+      url: API_URL + "/game-invites/list-to-game/" + game_id,
+    });
+    return listInvitesZoGameResSchema.parse(data);
+  }
+
+  async respondToInvite(payload: {
+    invite_id: string;
+    response: InviteResponseFromUser;
+  }) {
+    await this.axios({
+      method: "POST",
+      url: API_URL + "/game-invites/respond",
+      data: payload,
+    });
+    return;
+  }
+
   // LOG-OUT
 
   async logOut() {
@@ -200,3 +230,34 @@ export class Client {
     });
   }
 }
+
+export type InviteResponse = "pending" | "accepted" | "declined" | "unsure";
+export type InviteResponseFromUser = "accepted" | "declined" | "unsure";
+
+const listOwnInvitesResSchema = z.array(
+  z.object({
+    invite_id: z.string(),
+    game_id: z.string(),
+    opponent: z.string(),
+    response: z.union([
+      z.literal("pending"),
+      z.literal("accepted"),
+      z.literal("declined"),
+      z.literal("unsure"),
+    ]),
+  })
+);
+
+const listInvitesZoGameResSchema = z.array(
+  z.object({
+    invite_id: z.string(),
+    user_id: z.string(),
+    username: z.string(),
+    response: z.union([
+      z.literal("pending"),
+      z.literal("accepted"),
+      z.literal("declined"),
+      z.literal("unsure"),
+    ]),
+  })
+);
