@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS games (
 
 CREATE TYPE game_invite_response AS ENUM ('pending', 'accepted', 'declined', 'unsure');
 
-CREATE TABLE IF NOT EXISTS game_invite (
+CREATE TABLE IF NOT EXISTS game_invites (
     id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
 
     game_id  VARCHAR(36) NOT NULL REFERENCES games(id) ON DELETE CASCADE,
