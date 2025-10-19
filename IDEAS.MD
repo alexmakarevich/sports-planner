@@ -49,3 +49,8 @@ user may be assigned to multiple orgs (would need an n:n relationship), but a us
 
 - check input string lengths
 - auto-update create_at column in every table?
+
+# security
+
+- SANITIZE SQL!
+- SANITIZE XSS!
