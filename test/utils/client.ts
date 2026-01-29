@@ -1,8 +1,7 @@
-import axios, { AxiosInstance, AxiosPromise, AxiosRequestConfig } from "axios";
+import axios, { AxiosPromise, AxiosRequestConfig } from "axios";
 import { API_URL } from "./env";
 import { makeTestAxios } from "../utils";
 import z from "zod";
-import path from "path";
 
 z.config({
   customError: (issue) => {
@@ -16,7 +15,7 @@ const listUsersResponseSchema = z.array(
   z.object({
     id: z.string(),
     username: z.string(),
-  })
+  }),
 );
 
 export type Role = "super_admin" | "org_admin" | "coach" | "player";
@@ -245,7 +244,7 @@ const listOwnInvitesResSchema = z.array(
       z.literal("declined"),
       z.literal("unsure"),
     ]),
-  })
+  }),
 );
 
 const listInvitesZoGameResSchema = z.array(
@@ -259,5 +258,5 @@ const listInvitesZoGameResSchema = z.array(
       z.literal("declined"),
       z.literal("unsure"),
     ]),
-  })
+  }),
 );

@@ -117,7 +117,11 @@ export const makeTestAxios = (axiosInstance: AxiosInstance) => {
       return await axiosInstance(reqParams);
     } catch (err) {
       const { method, url, params, data } = reqParams;
-      console.error("Error in test Axios", { method, url, params, data }, err);
+      console.warn(
+        "Error in test Axios [may be expected]",
+        { method, url, params, data },
+        err,
+      );
       throw err;
     }
   };

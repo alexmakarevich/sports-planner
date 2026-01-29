@@ -54,7 +54,7 @@ describe(__filename, () => {
     expect(conductorCookie.slice(0, 11)).toEqual("session_id=");
     expect(conductorCookie.slice(11, 27)).not.toMatch(";");
     expect(conductorCookie.slice(27, 72)).toEqual(
-      "; HttpOnly; SameSite=Strict; Secure; Expires="
+      "; HttpOnly; SameSite=Strict; Secure; Expires=",
     );
     const expirationString = conductorCookie.slice(72);
 
@@ -87,7 +87,7 @@ describe(__filename, () => {
     const cookies = headers["set-cookie"];
 
     const unsetSessionCookie = cookies?.find((c) =>
-      c.startsWith("session_id=")
+      c.startsWith("session_id="),
     );
 
     if (!unsetSessionCookie) {
@@ -95,13 +95,13 @@ describe(__filename, () => {
     }
 
     expect(unsetSessionCookie.slice(0, 56)).toEqual(
-      "session_id=; HttpOnly; SameSite=Strict; Secure; Expires="
+      "session_id=; HttpOnly; SameSite=Strict; Secure; Expires=",
     );
 
     const expirationStringOfUnsetCookie = unsetSessionCookie.slice(57);
 
     const expirationDateOfUnsetCookie = new Date(
-      expirationStringOfUnsetCookie
+      expirationStringOfUnsetCookie,
     ).valueOf();
 
     expect(expirationDateOfUnsetCookie).toEqual(0);
