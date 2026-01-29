@@ -54,3 +54,9 @@ user may be assigned to multiple orgs (would need an n:n relationship), but a us
 
 - SANITIZE SQL!
 - SANITIZE XSS!
+
+# League/Association functionality
+
+seamlessly informing teams
+managing games
+managing trainings/special events
