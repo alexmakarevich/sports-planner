@@ -26,12 +26,11 @@ DB: Postgres
 - migrate DB: `sqlx migrate run`
 - start backend _with initial values_ \
   `INITIAL_ORG=super_org INITIAL_USER='super_user' INITIAL_PASSWORD='dev_password93837&§!' RUST_LOG=debug RUST_BACKTRACE=1 cargo watch -w src -x run`
-
   - (initial values only needed on first start, or after a DB-reset)
 
 ### API-Testing
 
 - ensure your initial values are under `test/.env`
-- ensure, your server is running - these test require it
+- ensure, your server is running - these tests require it
 - `cd test`
 - `npm run test`
