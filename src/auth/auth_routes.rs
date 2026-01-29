@@ -15,7 +15,7 @@ use time::{Duration, OffsetDateTime};
 
 use crate::{
     auth::utils::{AuthContext, EXPIRED_EMPTY_COOKIE},
-    entities::user::UserClean,
+    entities::{org::create_org, user::UserClean},
     utils::api::{db_err_to_response, handle_unexpected_db_err, AppState},
 };
 
@@ -120,19 +120,15 @@ pub async fn sign_up_with_new_org(
         .await
         .map_err(handle_unexpected_db_err)?;
 
-    let created_org = sqlx::query!(
-        r#"INSERT INTO orgs (title) VALUES ($1) RETURNING id"#,
-        payload.org_title,
-    )
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(handle_unexpected_db_err)?;
+    let created_org_id = create_org(&mut tx, &payload.org_title)
+        .await
+        .map_err(handle_unexpected_db_err)?;
 
     let new_user = sqlx::query!(
         r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
         payload.username,
         payload.password,
-        created_org.id
+        created_org_id
     )
     .fetch_one(&mut *tx)
     .await
