@@ -1,20 +1,12 @@
-use std::char::MAX;
-
 use crate::{
     auth::utils::AuthContext,
     utils::api::{handle_unexpected_db_err, AppState, EmptyApiResult},
-    JustId,
 };
-use axum::{extract::State, http::StatusCode, Error, Extension};
-use log::{debug, error};
+use axum::{extract::State, http::StatusCode, Extension};
+use log::error;
 use nanoid::nanoid;
-use rand::{
-    distr::{Alphanumeric, SampleString},
-    rng,
-};
 use serde::{Deserialize, Serialize};
-use sqlx::{Executor, PgTransaction, Postgres, Transaction};
-
+use sqlx::PgTransaction;
 use tokio::time::{sleep, Duration};
 
 const ID_LEN: usize = 6;
@@ -99,6 +91,7 @@ pub async fn create_org(tx: &mut PgTransaction<'_>, title: &str) -> Result<Strin
                     if retries >= MAX_RETRIES {
                         return Err(e);
                     }
+                    sleep(Duration::from_millis(RETRY_BACKOFF_MS)).await;
                     // Continue to retry
                 } else {
                     return Err(e);
