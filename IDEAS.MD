@@ -3,6 +3,7 @@
 - orgs may have suborgs/parent orgs
   - a team becomes one kind of org
   - on first org creation always default to "club" kind, then offer to create team
+  - on child creation/assignment - always check circularity
 - role assignments may be on any level
   - whether roles are applicable from parent/child org is gonna be a bit complex
     - a player should normally only be a player in the specific team(s)
@@ -11,6 +12,10 @@
 
 higher level orgs may invite users to events from children orgs
 user may be assigned to multiple orgs (would need an n:n relationship), but a user without orgs makes no sense (at the moment)
+
+# teams
+
+...
 
 # roles
 
