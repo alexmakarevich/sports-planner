@@ -1,6 +1,7 @@
 use std::iter;
 
 use chrono::{DateTime, Utc};
+use log::debug;
 use serde::{Deserialize, Serialize};
 
 use sqlx::Type;
@@ -15,7 +16,7 @@ use crate::{
     AppState, JustId,
 };
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Extension, Json,
@@ -171,4 +172,40 @@ pub async fn create_game(
     let _ = tx.commit().await.map_err(db_err_to_response)?;
 
     Ok((StatusCode::CREATED, Json(&new_game.id)).into_response())
+}
+
+pub async fn delete_game(
+    State(state): State<AppState>,
+    auth_ctx: Extension<AuthContext>,
+    Path(game_id): Path<String>,
+) -> Result<Response, Response> {
+    debug!("TRYING TO DELETE GAME {}", game_id);
+    // Only admins/coaches can delete games
+    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin, Role::Coach])?;
+
+    // Verify that the game belongs to the authenticated org
+    let game_exists = sqlx::query!(
+        "SELECT 1 as ok FROM games g JOIN teams t ON g.team_id = t.id WHERE g.id = $1 AND t.org_id = $2",
+        game_id,
+        auth_ctx.org_id
+    )
+    .fetch_optional(&state.pg_pool)
+    .await
+    .map_err(db_err_to_response)?;
+
+    if game_exists.is_none() {
+        debug!("GAME DOES NOT EXIST!!! {}", game_id);
+
+        return Err((StatusCode::NOT_FOUND, "Game not found").into_response());
+    }
+
+    debug!("GAME DOES EXIST {}", game_id);
+
+    // Delete the game (this will cascade to game_invites due to the foreign key constraint)
+    sqlx::query!("DELETE FROM games WHERE id = $1", game_id)
+        .execute(&state.pg_pool)
+        .await
+        .map_err(db_err_to_response)?;
+
+    Ok((StatusCode::NO_CONTENT).into_response())
 }

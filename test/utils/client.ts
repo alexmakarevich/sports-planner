@@ -248,6 +248,13 @@ export class Client {
     return z.string().parse(data);
   }
 
+  async deleteGame(gameId: string) {
+    await this.axios({
+      method: "DELETE",
+      url: API_URL + "/games/delete/" + gameId,
+    });
+  }
+
   // EVENT INVITE
 
   async listOwnInvites() {

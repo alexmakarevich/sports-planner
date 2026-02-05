@@ -302,7 +302,8 @@ describe(__filename, () => {
     //   },
     // });
 
-    // TODO: GAME CLEANUP!
+    // GAME CLEANUP
+    await orgAdminClient.deleteGame(newGameId);
 
     // SERVICE INVITE CLEANUP
 
