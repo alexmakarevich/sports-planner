@@ -30,6 +30,13 @@ export type LocationKind = "home" | "away" | "other";
 
 const listRolesResSchema = z.record(z.string(), z.array(roleSchema));
 
+export type Team = {
+  id: string;
+  org_id: string;
+  name: string;
+  slug: string;
+};
+
 export class Client {
   cookie: string;
   ownId: string;
@@ -148,9 +155,68 @@ export class Client {
     });
   }
 
+  // TEAM
+
+  private teamSchema = z.object({
+    id: z.string(),
+    org_id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+  });
+
+  private listTeamsResponseSchema = z.array(this.teamSchema);
+
+  async listTeams(): Promise<Team[]> {
+    const { data } = await this.axios({
+      method: "get",
+      url: `${API_URL}/teams/list`,
+    });
+    return this.listTeamsResponseSchema.parse(data);
+  }
+
+  async getTeam(id: string): Promise<Team> {
+    const { data } = await this.axios({
+      method: "get",
+      url: `${API_URL}/teams/get/${id}`,
+    });
+    return this.teamSchema.parse(data);
+  }
+
+  async createTeam(payload: { name: string; slug: string }): Promise<string> {
+    const { data } = await this.axios({
+      method: "post",
+      url: `${API_URL}/teams/create`,
+      data: payload,
+    });
+    return z.string().parse(data);
+  }
+
+  async updateTeam(
+    id: string,
+    payload: { name?: string; slug?: string },
+  ): Promise<Team> {
+    const { data } = await this.axios({
+      method: "put",
+      url: `${API_URL}/teams/update/${id}`,
+      data: payload,
+    });
+    return this.teamSchema.parse(data);
+  }
+
+  // --------------------------------------------------------------------
+  // Delete a team by id
+  // --------------------------------------------------------------------
+  async deleteTeamById(id: string): Promise<void> {
+    await this.axios({
+      method: "delete",
+      url: `${API_URL}/teams/delete-by-id/${id}`,
+    });
+  }
+
   // GAME
 
   async createGame({
+    team_id,
     opponent,
     start,
     end,
@@ -158,6 +224,7 @@ export class Client {
     location_kind,
     invited_roles,
   }: {
+    team_id: string;
     opponent: string;
     start: Date;
     end?: Date;
@@ -169,6 +236,7 @@ export class Client {
       method: "POST",
       url: API_URL + "/games/create",
       data: {
+        team_id,
         opponent,
         start: start.toISOString(),
         end: end?.toISOString(),

@@ -14,7 +14,7 @@ CREATE TYPE location_kind AS ENUM ('home', 'away', 'other');
 CREATE TABLE IF NOT EXISTS games (
     id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
 
-    org_id  VARCHAR(36) NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     opponent VARCHAR(255) NOT NULL,
     location VARCHAR(255) NOT NULL,
     location_kind location_kind NOT NULL,

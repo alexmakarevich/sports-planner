@@ -1,7 +1,6 @@
 import { logIn, makeTestId, signUpViaInvite, signUpWithNewOrg } from "./utils";
 import { Client } from "./utils/client";
 import { randomUUID } from "crypto";
-import { AxiosError, AxiosResponse } from "axios";
 
 const { testId } = makeTestId();
 
@@ -165,8 +164,6 @@ describe(__filename, () => {
       },
     });
 
-    // Failed to deserialize the JSON body into the target type: my_type: unknown variant `orange`, expected one of `Orange`, `Apple`
-
     // creating game
 
     await orgAdminClient.assignRole({
@@ -194,7 +191,18 @@ describe(__filename, () => {
 
     expect(regularUserInvites).toEqual([]);
 
+    // create team
+
+    const teamName = `team-${testId}`;
+    const teamSlug = `slug-${testId}`;
+
+    const team_id = await orgAdminClient.createTeam({
+      name: teamName,
+      slug: teamSlug,
+    });
+
     const newGameId = await orgAdminClient.createGame({
+      team_id,
       opponent: "some-opp",
       start: new Date(),
       end: new Date(),
@@ -293,6 +301,8 @@ describe(__filename, () => {
     //     data: /"Failed to deserialize the JSON body into the target type: response: unknown variant `something-else`, expected one of `accepted`, `declined`, `unsure`/,
     //   },
     // });
+
+    // TODO: GAME CLEANUP!
 
     // SERVICE INVITE CLEANUP
 

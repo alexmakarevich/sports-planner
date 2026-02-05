@@ -64,4 +64,5 @@ user may be assigned to multiple orgs (would need an n:n relationship), but a us
 
 seamlessly informing teams
 managing games
+requires game ownership and ownership transfer (if some games were first created within the team)
 managing trainings/special events

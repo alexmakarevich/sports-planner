@@ -4,7 +4,7 @@ import { API_URL } from "./utils/env";
 
 let testCookie: string;
 
-describe.skip(__filename, () => {
+describe(__filename, () => {
   // it.only("logs in", async () => {
   //   const cookie = await logInCoductorUser();
   // });

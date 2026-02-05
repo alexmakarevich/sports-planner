@@ -21,9 +21,16 @@ use axum::{
     Extension, Json,
 };
 
+// TODO: rewrite game to be from generic perspective - not from your club's
+// I.e. have defined host_id and and guest_id, referring to teams, most likely - from different clubs.
+// Potentially, even more generic - team1, team2, then a field defining who the host is (1,2 or "neutral/other").
+// This would remove the need for location_kind.
+// Would possibly need to have both - service may be used by whole leagues and by select teams.
+
 // user from DB wihtout security and unnecessary util fields
 #[derive(Deserialize)]
 pub struct CreateGamePayload {
+    pub team_id: String,
     pub opponent: String,
     pub start: DateTime<Utc>,
     pub end: Option<DateTime<Utc>>,
@@ -82,7 +89,18 @@ pub async fn create_game(
     auth_ctx: Extension<AuthContext>,
     Json(payload): Json<CreateGamePayload>,
 ) -> Result<Response, Response> {
+    // Only admins/coaches can create games – keep the same guard
     let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin, Role::Coach])?;
+
+    // Optional: verify that `payload.team_id` actually belongs to the authenticated org
+    sqlx::query!(
+        "SELECT 1 as ok FROM teams WHERE id = $1 AND org_id = $2",
+        payload.team_id,
+        auth_ctx.org_id
+    )
+    .fetch_one(&state.pg_pool)
+    .await
+    .map_err(db_err_to_response)?;
 
     let mut tx = state.pg_pool.begin().await.map_err(db_err_to_response)?;
 
@@ -98,13 +116,15 @@ pub async fn create_game(
     .map_err(db_err_to_response)?;
 
     let new_game = sqlx::query!(
-        r#"INSERT INTO games (opponent, location, location_kind, event_id, invited_roles, org_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"#,
+        r#"INSERT INTO games
+                (opponent, location, location_kind, event_id, invited_roles, team_id)
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"#,
         payload.opponent,
         payload.location,
         payload.location_kind as LocationKind,
         new_event.id,
         payload.invited_roles.clone() as Vec<Role>,
-        auth_ctx.org_id
+        payload.team_id
     )
     .fetch_one(&mut *tx)
     .await

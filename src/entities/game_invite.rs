@@ -57,11 +57,17 @@ pub async fn list_invites_to_game(
     let invites = sqlx::query_as!(
         SelectInvitesToGame,
         r#"
-        SELECT u.id as user_id, u.username as username, i.response AS "response: InviteResponse", i.id as invite_id
+        SELECT
+            u.id       as user_id,
+            u.username as username,
+            i.response AS "response: InviteResponse",
+            i.id       as invite_id
         FROM game_invites i
-        JOIN users u ON u.id = i.user_id 
+        JOIN users u ON u.id = i.user_id
         JOIN games g ON g.id = i.game_id
-        WHERE i.game_id = $1 AND g.org_id = $2
+        JOIN teams t ON t.id = g.team_id  
+        WHERE i.game_id = $1
+          AND t.org_id = $2
         "#,
         game_id,
         auth_ctx.org_id
