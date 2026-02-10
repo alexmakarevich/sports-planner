@@ -27,7 +27,7 @@ use crate::{
         roles::{assign_role, list_own_role_assignments, list_role_assignments, unassign_role},
     },
     entities::{
-        game::{create_game, delete_game},
+        game::game_router,
         game_invite::{answer_invite_to_game, list_invites_to_game, list_own_game_invites},
         org::delete_own_org,
         service_invite::{create_service_invite, delete_service_invite_by_id},
@@ -115,8 +115,7 @@ async fn main() {
             //
             .nest("/teams", team_router(state.clone()))
             //
-            .route("/games/create", post(create_game))
-            .route("/games/delete/{game_id}", delete(delete_game))
+            .nest("/games", game_router(state.clone()))
             //
             .route("/game-invites/list-own", get(list_own_game_invites))
             .route(

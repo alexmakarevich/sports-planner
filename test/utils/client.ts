@@ -2,6 +2,7 @@ import axios, { AxiosPromise, AxiosRequestConfig } from "axios";
 import { API_URL } from "./env";
 import { makeTestAxios } from "../utils";
 import z from "zod";
+import { log } from "console";
 
 z.config({
   customError: (issue) => {
@@ -218,16 +219,16 @@ export class Client {
   async createGame({
     team_id,
     opponent,
-    start,
-    end,
+    start_time,
+    stop_time,
     location,
     location_kind,
     invited_roles,
   }: {
     team_id: string;
     opponent: string;
-    start: Date;
-    end?: Date;
+    start_time: Date;
+    stop_time?: Date;
     location: string;
     location_kind: LocationKind;
     invited_roles: Role[];
@@ -238,8 +239,8 @@ export class Client {
       data: {
         team_id,
         opponent,
-        start: start.toISOString(),
-        end: end?.toISOString(),
+        start_time,
+        stop_time,
         location,
         location_kind,
         invited_roles,
@@ -251,8 +252,31 @@ export class Client {
   async deleteGame(gameId: string) {
     await this.axios({
       method: "DELETE",
-      url: API_URL + "/games/delete/" + gameId,
+      url: API_URL + "/games/delete-by-id/" + gameId,
     });
+  }
+
+  private listGamesResponse = z.array(
+    z.object({
+      id: z.string(),
+      team_id: z.string(),
+      opponent: z.string(),
+      start_time: z.coerce.date(),
+      stop_time: z.coerce.date().nullable(),
+      location: z.string(),
+      location_kind: z.enum(["home", "away", "other"]),
+    }),
+  );
+
+  // Add the listGamesForTeam method
+  async listGamesForTeam(teamId: string) {
+    const { data } = await this.axios({
+      method: "GET",
+      url: API_URL + "/games/list-for-team/" + teamId,
+    });
+
+    log({ raw: data });
+    return this.listGamesResponse.parse(data);
   }
 
   // EVENT INVITE
@@ -270,7 +294,7 @@ export class Client {
       method: "GET",
       url: API_URL + "/game-invites/list-to-game/" + game_id,
     });
-    return listInvitesZoGameResSchema.parse(data);
+    return listInvitesToGameResSchema.parse(data);
   }
 
   async respondToInvite(payload: {
@@ -322,7 +346,7 @@ const listOwnInvitesResSchema = z.array(
   }),
 );
 
-const listInvitesZoGameResSchema = z.array(
+const listInvitesToGameResSchema = z.array(
   z.object({
     invite_id: z.string(),
     user_id: z.string(),

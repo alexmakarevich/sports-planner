@@ -204,12 +204,20 @@ describe(__filename, () => {
     const newGameId = await orgAdminClient.createGame({
       team_id,
       opponent: "some-opp",
-      start: new Date(),
-      end: new Date(),
+      start_time: new Date(),
+      stop_time: new Date(),
       location: "some place with address",
       location_kind: "home",
       invited_roles: ["player", "coach"],
     });
+
+    // Test listing games for the team
+    const games = await orgAdminClient.listGamesForTeam(team_id);
+    expect(games).toHaveLength(1);
+    expect(games[0].id).toBe(newGameId);
+    expect(games[0].opponent).toBe("some-opp");
+    expect(games[0].location).toBe("some place with address");
+    expect(games[0].location_kind).toBe("home");
 
     regularUserInvites = await regularUserClient.listOwnInvites();
     expect(regularUserInvites.length).toEqual(1);
@@ -302,7 +310,8 @@ describe(__filename, () => {
     //   },
     // });
 
-    // GAME CLEANUP
+    // GAME
+
     await orgAdminClient.deleteGame(newGameId);
 
     // SERVICE INVITE CLEANUP

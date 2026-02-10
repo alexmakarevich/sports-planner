@@ -19,7 +19,8 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Extension, Json,
+    routing::{delete, get, post},
+    Extension, Json, Router,
 };
 
 // TODO: rewrite game to be from generic perspective - not from your club's
@@ -33,8 +34,8 @@ use axum::{
 pub struct CreateGamePayload {
     pub team_id: String,
     pub opponent: String,
-    pub start: DateTime<Utc>,
-    pub end: Option<DateTime<Utc>>,
+    pub start_time: DateTime<Utc>,
+    pub stop_time: Option<DateTime<Utc>>,
     pub location: String,
     pub location_kind: LocationKind, // home|away|other
     pub invited_roles: Vec<Role>,
@@ -85,6 +86,16 @@ pub enum InviteResponseFromUser {
 //     Uninvited,
 // }
 
+pub fn game_router<S>(state: AppState) -> Router<S> {
+    Router::new()
+        .route("/create", post(create_game))
+        // .route("/get/{id}", get(get_team))
+        .route("/list-for-team/{team_id}", get(list_games_for_team))
+        // .route("/update/{id}", put(update_team))
+        .route("/delete-by-id/{id}", delete(delete_game))
+        .with_state(state.clone())
+}
+
 pub async fn create_game(
     State(state): State<AppState>,
     auth_ctx: Extension<AuthContext>,
@@ -105,12 +116,10 @@ pub async fn create_game(
 
     let mut tx = state.pg_pool.begin().await.map_err(db_err_to_response)?;
 
-    let end_conv = payload.end.map(|e| e.naive_utc());
-
     let new_event = sqlx::query!(
-        r#"INSERT INTO events (start_time, stop_time) VALUES ($1, $2) RETURNING id"#,
-        payload.start.naive_utc(),
-        end_conv,
+        r#"INSERT INTO events (start_time, stop_time) VALUES ($1::timestamptz, $2::timestamptz) RETURNING id"#,
+        payload.start_time,
+        payload.stop_time,
     )
     .fetch_one(&mut *tx)
     .await
@@ -208,4 +217,62 @@ pub async fn delete_game(
         .map_err(db_err_to_response)?;
 
     Ok((StatusCode::NO_CONTENT).into_response())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GameListItem {
+    id: String,
+    team_id: String,
+    opponent: String,
+    start_time: chrono::DateTime<Utc>,
+    stop_time: Option<chrono::DateTime<Utc>>,
+    location: String,
+    location_kind: LocationKind,
+}
+
+pub async fn list_games_for_team(
+    State(state): State<AppState>,
+    auth_ctx: Extension<AuthContext>,
+    Path(team_id): Path<String>,
+) -> Result<Response, Response> {
+    // Only admins/coaches can list games for a team
+    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin, Role::Coach])?;
+
+    // Verify that the team belongs to the authenticated org
+    let team_exists = sqlx::query!(
+        "SELECT 1 as ok FROM teams WHERE id = $1 AND org_id = $2",
+        team_id,
+        auth_ctx.org_id
+    )
+    .fetch_optional(&state.pg_pool)
+    .await
+    .map_err(db_err_to_response)?;
+
+    if team_exists.is_none() {
+        return Err((StatusCode::NOT_FOUND, "Team not found").into_response());
+    }
+
+    let games = sqlx::query_as!(
+        GameListItem,
+        r#"
+        SELECT 
+            g.id,
+            g.team_id,
+            g.opponent,
+            e.start_time,
+            e.stop_time,
+            g.location,
+            g.location_kind AS "location_kind: LocationKind"
+        FROM games g
+        JOIN events e ON g.event_id = e.id
+        WHERE g.team_id = $1
+        ORDER BY e.start_time DESC
+        "#,
+        team_id
+    )
+    .fetch_all(&state.pg_pool)
+    .await
+    .map_err(db_err_to_response)?;
+
+    Ok((StatusCode::OK, Json(games)).into_response())
 }
