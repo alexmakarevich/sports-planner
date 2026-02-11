@@ -15,7 +15,7 @@ use time::{Duration, OffsetDateTime};
 
 use crate::{
     auth::utils::{AuthContext, EXPIRED_EMPTY_COOKIE},
-    entities::{org::create_org, user::UserClean},
+    entities::{club::create_club, user::UserClean},
     utils::api::{db_err_to_response, handle_unexpected_db_err, AppState},
 };
 
@@ -32,10 +32,10 @@ pub struct LoginParams {
 }
 
 #[derive(Deserialize)]
-pub struct SignUpWithNewOrgParams {
+pub struct SignUpWithNewClubParams {
     pub username: String,
     pub password: String,
-    pub org_title: String,
+    pub club_title: String,
 }
 
 #[derive(Deserialize)]
@@ -45,7 +45,7 @@ pub struct SignUpViaInviteParams {
 }
 
 struct InviteModel {
-    org_id: String,
+    club_id: String,
 }
 
 // pub async fn sign_up_via_invite
@@ -63,7 +63,7 @@ pub async fn sign_up_via_invite(
 
     let service_invite = sqlx::query_as!(
         InviteModel,
-        r#"SELECT org_id FROM service_invites WHERE id = $1"#,
+        r#"SELECT club_id FROM service_invites WHERE id = $1"#,
         invite_id,
     )
     .fetch_one(&mut *tx)
@@ -71,10 +71,10 @@ pub async fn sign_up_via_invite(
     .map_err(handle_unexpected_db_err)?;
 
     let new_user = sqlx::query!(
-        r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
+        r#"INSERT INTO users (username, password, club_id) VALUES ($1, $2, $3) RETURNING id"#,
         payload.username,
         payload.password,
-        service_invite.org_id
+        service_invite.club_id
     )
     .fetch_one(&mut *tx)
     .await
@@ -110,9 +110,9 @@ pub async fn sign_up_via_invite(
         .into_response())
 }
 
-pub async fn sign_up_with_new_org(
+pub async fn sign_up_with_new_club(
     State(state): State<AppState>,
-    Json(payload): Json<SignUpWithNewOrgParams>,
+    Json(payload): Json<SignUpWithNewClubParams>,
 ) -> Result<(StatusCode, HeaderMap, Json<String>), (StatusCode, String)> {
     let mut tx = state
         .pg_pool
@@ -120,22 +120,22 @@ pub async fn sign_up_with_new_org(
         .await
         .map_err(handle_unexpected_db_err)?;
 
-    let created_org_id = create_org(&mut tx, &payload.org_title)
+    let created_club_id = create_club(&mut tx, &payload.club_title)
         .await
         .map_err(handle_unexpected_db_err)?;
 
     let new_user = sqlx::query!(
-        r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
+        r#"INSERT INTO users (username, password, club_id) VALUES ($1, $2, $3) RETURNING id"#,
         payload.username,
         payload.password,
-        created_org_id
+        created_club_id
     )
     .fetch_one(&mut *tx)
     .await
     .map_err(handle_unexpected_db_err)?;
 
     let _ = sqlx::query!(
-        r#"INSERT INTO role_assignments (user_id, role) VALUES ($1, 'org_admin') RETURNING id"#,
+        r#"INSERT INTO role_assignments (user_id, role) VALUES ($1, 'club_admin') RETURNING id"#,
         new_user.id,
     )
     .fetch_one(&mut *tx)

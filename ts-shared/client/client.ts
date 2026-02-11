@@ -17,10 +17,10 @@ const listUsersResponseSchema = z.array(
   }),
 );
 
-export type Role = "super_admin" | "org_admin" | "coach" | "player";
+export type Role = "super_admin" | "club_admin" | "coach" | "player";
 export const roleSchema = z.enum([
   "super_admin",
-  "org_admin",
+  "club_admin",
   "coach",
   "player",
 ]);
@@ -31,7 +31,7 @@ const listRolesResSchema = z.record(z.string(), z.array(roleSchema));
 
 export type Team = {
   id: string;
-  org_id: string;
+  club_id: string;
   name: string;
   slug: string;
 };
@@ -173,7 +173,7 @@ export class Client {
   async createServiceInvite(): Promise<string> {
     const { data } = await this.axios({
       method: "POST",
-      url: "/invites-to-org/create",
+      url: "/invites-to-club/create",
     });
     return z.string().parse(data);
   }
@@ -181,7 +181,7 @@ export class Client {
   async deleteServiceInviteById(id: string) {
     await this.axios({
       method: "DELETE",
-      url: "/invites-to-org/delete-by-id/" + id,
+      url: "/invites-to-club/delete-by-id/" + id,
     });
   }
 
@@ -189,7 +189,7 @@ export class Client {
 
   private teamSchema = z.object({
     id: z.string(),
-    org_id: z.string(),
+    club_id: z.string(),
     name: z.string(),
     slug: z.string(),
   });
@@ -348,10 +348,10 @@ export class Client {
 
   // SElF-DELETE
 
-  async deleteOwnOrg() {
+  async deleteOwnclub() {
     await this.axios({
       method: "DELETE",
-      url: "/orgs/delete-own",
+      url: "/clubs/delete-own",
       validateStatus: (s) => s === 204,
     });
   }

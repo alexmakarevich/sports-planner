@@ -18,7 +18,7 @@ use crate::{
 pub struct UserWithSessionModel {
     pub user_id: String,
     pub session_id: String,
-    pub org_id: String,
+    pub club_id: String,
     pub roles: Option<Vec<Role>>,
 }
 
@@ -45,7 +45,7 @@ pub async fn cookie_auth_middleware(
     let user_with_session = sqlx::query_as!(
         UserWithSessionModel,
         r#"
-        SELECT u.id as user_id, s.id as session_id, u.org_id as org_id,
+        SELECT u.id as user_id, s.id as session_id, u.club_id as club_id,
         COALESCE(array_agg(ra.role) FILTER (WHERE ra.role IS NOT NULL), '{}') AS "roles: Vec<Role>" 
         FROM users u
         LEFT JOIN role_assignments ra on ra.user_id = u.id
@@ -75,7 +75,7 @@ pub async fn cookie_auth_middleware(
     let auth_context = AuthContext {
         roles: roles,
         user_id: user_with_session.user_id,
-        org_id: user_with_session.org_id,
+        club_id: user_with_session.club_id,
         session_id: user_with_session.session_id,
     };
 

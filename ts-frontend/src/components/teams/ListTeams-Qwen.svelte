@@ -45,7 +45,7 @@
           <li class="team-item">
             <h2>{team.name}</h2>
             <p>Slug: {team.slug}</p>
-            <p>Organization ID: {team.org_id}</p>
+            <p>Club ID: {team.club_id}</p>
           </li>
         {/each}
       </ul>

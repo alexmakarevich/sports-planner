@@ -6,26 +6,26 @@ const { testId } = makeTestId();
 
 describe(__filename, () => {
   it("CRUD team entity (admin) and permission checks (regular user)", async () => {
-    // Create a brand‑new org – this gives us an org‑admin user
-    const adminDetails = await testAuthUtils.signUpWithNewOrg({
+    // Create a brand‑new club – this gives us an club‑admin user
+    const adminDetails = await testAuthUtils.signUpWithNewClub({
       username: `admin-${testId}`,
       password: `admin-pass-${testId}`,
-      orgTitle: `test-org-${testId}`,
+      clubTitle: `test-club-${testId}`,
     });
 
-    const orgAdminClient = new TestClient({ ...adminDetails, testId });
+    const clubAdminClient = new TestClient({ ...adminDetails, testId });
 
     // ---- Admin can create a team ---------------------------------------
     const teamName = `team-${testId}`;
     const teamSlug = `slug-${testId}`;
 
-    const teamId = await orgAdminClient.createTeam({
+    const teamId = await clubAdminClient.createTeam({
       name: teamName,
       slug: teamSlug,
     });
 
     // ---- List teams ----------------------------------------------------
-    const teamsAfterCreate = await orgAdminClient.listTeams();
+    const teamsAfterCreate = await clubAdminClient.listTeams();
     expect(teamsAfterCreate).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -37,7 +37,7 @@ describe(__filename, () => {
     );
 
     // ---- Get a single team ---------------------------------------------
-    const teamDetails = await orgAdminClient.getTeam(teamId);
+    const teamDetails = await clubAdminClient.getTeam(teamId);
     expect(teamDetails).toEqual(
       expect.objectContaining({
         id: teamId,
@@ -50,7 +50,7 @@ describe(__filename, () => {
     const newName = `${teamName}-updated`;
     const newSlug = `${teamSlug}-updated`;
 
-    const updatedTeam = await orgAdminClient.updateTeam(teamId, {
+    const updatedTeam = await clubAdminClient.updateTeam(teamId, {
       name: newName,
       slug: newSlug,
     });
@@ -64,17 +64,17 @@ describe(__filename, () => {
     );
 
     // ---- Delete the team ------------------------------------------------
-    await orgAdminClient.deleteTeamById(teamId);
+    await clubAdminClient.deleteTeamById(teamId);
 
     // Team should no longer appear in the list
-    const teamsAfterDelete = await orgAdminClient.listTeams();
+    const teamsAfterDelete = await clubAdminClient.listTeams();
     expect(teamsAfterDelete).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: teamId })]),
     );
 
     // ---- Regular user cannot create teams ------------------------------
     // Create a second user (no special roles yet)
-    const userId = await orgAdminClient.createUser({
+    const userId = await clubAdminClient.createUser({
       username: `user-${testId}`,
       password: `user-pass-${testId}`,
     });
@@ -94,14 +94,14 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [super_admin, org_admin]",
+        data: "Access denied. Needs one of roles: [super_admin, club_admin]",
       },
     });
 
     // Clean up user
     await userClient.deleteOwnUser();
 
-    // ---- Cleanup: delete the org ----------------------------------------
-    await orgAdminClient.deleteOwnOrg();
+    // ---- Cleanup: delete the club ----------------------------------------
+    await clubAdminClient.deleteOwnclub();
   });
 });

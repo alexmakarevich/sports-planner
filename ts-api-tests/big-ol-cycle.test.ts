@@ -19,26 +19,26 @@ const invitedUserPassword = regularUserName;
 
 describe(__filename, () => {
   it("does it all...", async () => {
-    const neworg_adminDetails = await testAuthUtils.signUpWithNewOrg({
+    const newclub_adminDetails = await testAuthUtils.signUpWithNewClub({
       username: adminUsername,
       password: adminPassword,
-      orgTitle: "test-org-" + testId,
+      clubTitle: "test-club-" + testId,
     });
 
-    const orgAdminClient = new TestClient({
-      ...neworg_adminDetails,
+    const clubAdminClient = new TestClient({
+      ...newclub_adminDetails,
       testId,
     });
 
-    const ownRolesOfAdmin = await orgAdminClient.listOwnRoles();
-    expect(ownRolesOfAdmin).toEqual(["org_admin"]);
+    const ownRolesOfAdmin = await clubAdminClient.listOwnRoles();
+    expect(ownRolesOfAdmin).toEqual(["club_admin"]);
 
-    const allRoleAssignments = await orgAdminClient.listRoles();
+    const allRoleAssignments = await clubAdminClient.listRoles();
     expect(allRoleAssignments).toEqual({
-      [orgAdminClient.ownId]: ["org_admin"],
+      [clubAdminClient.ownId]: ["club_admin"],
     });
 
-    const newUserId = await orgAdminClient.createUser({
+    const newUserId = await clubAdminClient.createUser({
       username: regularUserName,
       password: regularUserPassword,
     });
@@ -63,7 +63,7 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
+        data: "Access denied. Needs one of roles: [club_admin, super_admin]",
       },
     });
 
@@ -72,16 +72,16 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
+        data: "Access denied. Needs one of roles: [club_admin, super_admin]",
       },
     });
 
-    const users = await orgAdminClient.listUsers();
+    const users = await clubAdminClient.listUsers();
     expect(users.length).toEqual(2);
     expect(users).toEqual(
       expect.arrayContaining([
         {
-          id: orgAdminClient.ownId,
+          id: clubAdminClient.ownId,
           username: adminUsername,
         },
         {
@@ -91,16 +91,16 @@ describe(__filename, () => {
       ]),
     );
 
-    await orgAdminClient.assignRole({
+    await clubAdminClient.assignRole({
       user_id: regularUserClient.ownId,
-      role: "org_admin",
+      role: "club_admin",
     });
 
-    expect(regularUserClient.listOwnRoles()).resolves.toEqual(["org_admin"]);
+    expect(regularUserClient.listOwnRoles()).resolves.toEqual(["club_admin"]);
 
-    expect(orgAdminClient.listRoles()).resolves.toEqual({
-      [orgAdminClient.ownId]: ["org_admin"],
-      [regularUserClient.ownId]: ["org_admin"],
+    expect(clubAdminClient.listRoles()).resolves.toEqual({
+      [clubAdminClient.ownId]: ["club_admin"],
+      [regularUserClient.ownId]: ["club_admin"],
     });
 
     const id = await regularUserClient.createUser({
@@ -109,14 +109,14 @@ describe(__filename, () => {
     });
     await regularUserClient.deleteUserById(id);
 
-    await orgAdminClient.unassignRole({
+    await clubAdminClient.unassignRole({
       user_id: regularUserClient.ownId,
-      role: "org_admin",
+      role: "club_admin",
     });
 
     expect(regularUserClient.listOwnRoles()).resolves.toEqual([]);
-    expect(orgAdminClient.listRoles()).resolves.toMatchObject({
-      [orgAdminClient.ownId]: ["org_admin"],
+    expect(clubAdminClient.listRoles()).resolves.toMatchObject({
+      [clubAdminClient.ownId]: ["club_admin"],
       // [regularUserClient.ownId]: NONE,
     });
 
@@ -128,7 +128,7 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
+        data: "Access denied. Needs one of roles: [club_admin, super_admin]",
       },
     });
 
@@ -137,13 +137,13 @@ describe(__filename, () => {
     ).rejects.toMatchObject({
       response: {
         status: 403,
-        data: "Access denied. Needs one of roles: [org_admin, super_admin]",
+        data: "Access denied. Needs one of roles: [club_admin, super_admin]",
       },
     });
 
     //
 
-    const serviceInviteId = await orgAdminClient.createServiceInvite();
+    const serviceInviteId = await clubAdminClient.createServiceInvite();
 
     const inviteUserDetails = await testAuthUtils.signUpViaInvite({
       username: invitedUserName,
@@ -167,12 +167,12 @@ describe(__filename, () => {
 
     // creating game
 
-    await orgAdminClient.assignRole({
+    await clubAdminClient.assignRole({
       user_id: regularUserClient.ownId,
       role: "coach",
     });
 
-    await orgAdminClient.assignRole({
+    await clubAdminClient.assignRole({
       user_id: regularUserClient.ownId,
       role: "player",
     });
@@ -197,12 +197,12 @@ describe(__filename, () => {
     const teamName = `team-${testId}`;
     const teamSlug = `slug-${testId}`;
 
-    const team_id = await orgAdminClient.createTeam({
+    const team_id = await clubAdminClient.createTeam({
       name: teamName,
       slug: teamSlug,
     });
 
-    const newGameId = await orgAdminClient.createGame({
+    const newGameId = await clubAdminClient.createGame({
       team_id,
       opponent: "some-opp",
       start_time: new Date(),
@@ -213,7 +213,7 @@ describe(__filename, () => {
     });
 
     // Test listing games for the team
-    const games = await orgAdminClient.listGamesForTeam(team_id);
+    const games = await clubAdminClient.listGamesForTeam(team_id);
     expect(games).toHaveLength(1);
     expect(games[0].id).toBe(newGameId);
     expect(games[0].opponent).toBe("some-opp");
@@ -232,7 +232,7 @@ describe(__filename, () => {
     const firstInviteId = regularUserInvites[0].invite_id;
 
     const invitesToFirstGame =
-      await orgAdminClient.listInvitesToGame(newGameId);
+      await clubAdminClient.listInvitesToGame(newGameId);
 
     expect(invitesToFirstGame).toEqual([
       {
@@ -248,42 +248,48 @@ describe(__filename, () => {
       response: "unsure",
     });
 
-    await expect(orgAdminClient.listInvitesToGame(newGameId)).resolves.toEqual([
-      {
-        invite_id: firstInviteId,
-        user_id: regularUserClient.ownId,
-        username: regularUserName,
-        response: "unsure",
-      },
-    ]);
+    await expect(clubAdminClient.listInvitesToGame(newGameId)).resolves.toEqual(
+      [
+        {
+          invite_id: firstInviteId,
+          user_id: regularUserClient.ownId,
+          username: regularUserName,
+          response: "unsure",
+        },
+      ],
+    );
 
     await regularUserClient.respondToInvite({
       invite_id: firstInviteId,
       response: "declined",
     });
 
-    await expect(orgAdminClient.listInvitesToGame(newGameId)).resolves.toEqual([
-      {
-        invite_id: firstInviteId,
-        user_id: regularUserClient.ownId,
-        username: regularUserName,
-        response: "declined",
-      },
-    ]);
+    await expect(clubAdminClient.listInvitesToGame(newGameId)).resolves.toEqual(
+      [
+        {
+          invite_id: firstInviteId,
+          user_id: regularUserClient.ownId,
+          username: regularUserName,
+          response: "declined",
+        },
+      ],
+    );
 
     await regularUserClient.respondToInvite({
       invite_id: firstInviteId,
       response: "accepted",
     });
 
-    await expect(orgAdminClient.listInvitesToGame(newGameId)).resolves.toEqual([
-      {
-        invite_id: firstInviteId,
-        user_id: regularUserClient.ownId,
-        username: regularUserName,
-        response: "accepted",
-      },
-    ]);
+    await expect(clubAdminClient.listInvitesToGame(newGameId)).resolves.toEqual(
+      [
+        {
+          invite_id: firstInviteId,
+          user_id: regularUserClient.ownId,
+          username: regularUserName,
+          response: "accepted",
+        },
+      ],
+    );
 
     // await expect(
     //   regularUserClient.respondToInvite({
@@ -313,18 +319,18 @@ describe(__filename, () => {
 
     // GAME
 
-    await orgAdminClient.deleteGame(newGameId);
+    await clubAdminClient.deleteGame(newGameId);
 
     // SERVICE INVITE CLEANUP
 
-    await orgAdminClient.deleteServiceInviteById(serviceInviteId);
+    await clubAdminClient.deleteServiceInviteById(serviceInviteId);
 
     await invitedClient.deleteOwnUser();
 
     // NORMAL CLEANUP
 
-    await orgAdminClient.deleteUserById(newUserId);
+    await clubAdminClient.deleteUserById(newUserId);
 
-    await orgAdminClient.deleteOwnOrg();
+    await clubAdminClient.deleteOwnclub();
   });
 });

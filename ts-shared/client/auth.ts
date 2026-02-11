@@ -58,22 +58,22 @@ export class AuthUtils {
     throw new Error("Failed to retieve cookie from login");
   };
 
-  signUpWithNewOrg = async ({
+  signUpWithNewClub = async ({
     username,
     password,
-    orgTitle,
+    clubTitle,
   }: {
     username: string;
     password: string;
-    orgTitle: string;
+    clubTitle: string;
   }): Promise<LoginResult> => {
     const { status, data, headers } = await axios({
       method: "POST",
-      url: this.API_URL + "/sign-up-with-new-org",
+      url: this.API_URL + "/sign-up-with-new-club",
       data: {
         username,
         password,
-        org_title: orgTitle,
+        club_title: clubTitle,
       },
       validateStatus: () => true,
     });
@@ -93,7 +93,7 @@ export class AuthUtils {
         return { ownId, cookie };
       }
     }
-    throw new Error("Failed to retieve cookie from signup with new org");
+    throw new Error("Failed to retieve cookie from signup with new club");
   };
 
   signUpViaInvite = async ({
@@ -130,6 +130,6 @@ export class AuthUtils {
         return { ownId, cookie };
       }
     }
-    throw new Error("Failed to retieve cookie from signup with new org");
+    throw new Error("Failed to retieve cookie from signup with new club");
   };
 }

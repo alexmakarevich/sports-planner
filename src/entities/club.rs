@@ -15,14 +15,14 @@ const RETRY_BACKOFF_MS: u64 = 50;
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 #[allow(non_snake_case)]
-pub struct OrgModel {
+pub struct ClubModel {
     pub id: String,
     pub title: String,
     pub created_at: Option<chrono::NaiveDateTime>,
     pub updated_at: Option<chrono::NaiveDateTime>,
 }
 
-// async fn create_org_bad(
+// async fn create_club_bad(
 //     mut exec: PgTransaction<'_>,
 //     mut title: String,
 // ) -> Result<String, sqlx::Error> {
@@ -33,7 +33,7 @@ pub struct OrgModel {
 
 //         let res = sqlx::query_as!(
 //             JustId,
-//             r#"INSERT INTO orgs (id, title) VALUES ($1, $2) RETURNING id"#,
+//             r#"INSERT INTO clubs (id, title) VALUES ($1, $2) RETURNING id"#,
 //             id,
 //             title,
 //         )
@@ -51,7 +51,7 @@ pub struct OrgModel {
 //                             continue;
 //                         } else {
 //                             error!(
-//                                 "Failed to create a new org with a unique ID after {} retries",
+//                                 "Failed to create a new club with a unique ID after {} retries",
 //                                 MAX_RETRIES
 //                             );
 //                             return Err(raw_err);
@@ -64,7 +64,7 @@ pub struct OrgModel {
 //     }
 // }
 
-pub async fn create_org(tx: &mut PgTransaction<'_>, title: &str) -> Result<String, sqlx::Error> {
+pub async fn create_club(tx: &mut PgTransaction<'_>, title: &str) -> Result<String, sqlx::Error> {
     let mut retries = 0;
 
     loop {
@@ -73,7 +73,7 @@ pub async fn create_org(tx: &mut PgTransaction<'_>, title: &str) -> Result<Strin
         // FYI: scalar is used, because query_as miserably fails in the retry scenario
 
         match sqlx::query_scalar::<_, String>(
-            "INSERT INTO orgs (id, title) VALUES ($1, $2) RETURNING id",
+            "INSERT INTO clubs (id, title) VALUES ($1, $2) RETURNING id",
         )
         .bind(id)
         .bind(title)
@@ -131,9 +131,9 @@ async fn retry_insert(tx: &mut PgTransaction<'_>, title: &str) -> Result<(), sql
     }
 }
 
-// TODO: modify org
+// TODO: modify club
 // TODO: more granular checks and readable errors
-pub async fn delete_own_org(
+pub async fn delete_own_club(
     State(state): State<AppState>,
     auth_ctx: Extension<AuthContext>,
 ) -> EmptyApiResult {
@@ -148,7 +148,7 @@ pub async fn delete_own_org(
         .await
         .map_err(handle_unexpected_db_err)?;
 
-    let _ = sqlx::query!(r#"DELETE FROM orgs WHERE id = $1"#, auth_ctx.org_id)
+    let _ = sqlx::query!(r#"DELETE FROM clubs WHERE id = $1"#, auth_ctx.club_id)
         .execute(&mut *tx)
         .await
         .map_err(handle_unexpected_db_err)?;

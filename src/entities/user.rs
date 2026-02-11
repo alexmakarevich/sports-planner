@@ -37,13 +37,13 @@ pub async fn create_user(
     let username = payload.username;
     let password = payload.password;
 
-    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin])?;
+    let _ = check_user_roles(&auth_ctx, &[Role::ClubAdmin, Role::SuperAdmin])?;
 
     let query_result = sqlx::query!(
-        r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
+        r#"INSERT INTO users (username, password, club_id) VALUES ($1, $2, $3) RETURNING id"#,
         username,
         password,
-        auth_ctx.org_id
+        auth_ctx.club_id
     )
     .fetch_one(&state.pg_pool)
     .await;
@@ -69,11 +69,11 @@ pub async fn delete_user_by_id(
     debug!("delete user by id called");
     debug!("{}", id);
     debug!(
-        "delete_user_by_id, auth ctx - user: {} session: {}, org: {}",
-        auth_ctx.user_id, auth_ctx.session_id, auth_ctx.org_id
+        "delete_user_by_id, auth ctx - user: {} session: {}, club: {}",
+        auth_ctx.user_id, auth_ctx.session_id, auth_ctx.club_id
     );
 
-    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin])?;
+    let _ = check_user_roles(&auth_ctx, &[Role::ClubAdmin, Role::SuperAdmin])?;
 
     let query_result = sqlx::query!(r#"DELETE FROM users WHERE id = $1"#, id)
         .execute(&state.pg_pool)
@@ -138,14 +138,14 @@ pub async fn list_users(
     auth_ctx: Extension<AuthContext>,
 ) -> ApiResult<Vec<UserClean>> {
     debug!(
-        "list_users, auth ctx - user: {} session: {}, org: {}, roles: {:?}",
-        auth_ctx.user_id, auth_ctx.session_id, auth_ctx.org_id, auth_ctx.roles
+        "list_users, auth ctx - user: {} session: {}, club: {}, roles: {:?}",
+        auth_ctx.user_id, auth_ctx.session_id, auth_ctx.club_id, auth_ctx.roles
     );
 
     let query_result = sqlx::query_as!(
         UserClean,
-        r#"SELECT id, username FROM users WHERE org_id = $1 ORDER by id"#,
-        auth_ctx.org_id
+        r#"SELECT id, username FROM users WHERE club_id = $1 ORDER by id"#,
+        auth_ctx.club_id
     )
     .fetch_all(&state.pg_pool)
     .await;

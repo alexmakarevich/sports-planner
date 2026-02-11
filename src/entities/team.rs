@@ -1,5 +1,5 @@
 // src/entities/team.rs
-//! Team entity – a concrete team inside an org
+//! Team entity – a concrete team inside an club
 //! (e.g. “men's senior football team”)
 
 use log::debug;
@@ -26,8 +26,8 @@ use axum::{
 #[allow(non_snake_case)]
 pub struct TeamModel {
     pub id: String,
-    /// The org that owns this team
-    pub org_id: String,
+    /// The club that owns this team
+    pub club_id: String,
     /// Human‑readable name
     pub name: String,
     /// Optional short slug – e.g. "MU18, WO45"
@@ -41,7 +41,7 @@ pub struct TeamModel {
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Team {
     pub id: String,
-    pub org_id: String,
+    pub club_id: String,
     pub name: String,
     pub slug: String,
 }
@@ -68,15 +68,15 @@ pub async fn create_team(
     auth_ctx: Extension<AuthContext>,
     Json(payload): Json<CreateTeamPayload>,
 ) -> Result<(StatusCode, Json<String>), Response> {
-    // OrgAdmin or SuperAdmin can create a team
-    check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin])?;
+    // clubAdmin or SuperAdmin can create a team
+    check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin])?;
 
     let new_id = sqlx::query!(
-        r#"INSERT INTO teams (id, org_id, name, slug) 
+        r#"INSERT INTO teams (id, club_id, name, slug) 
            VALUES ($1, $2, $3, $4) 
            RETURNING id"#,
         uuid::Uuid::new_v4().to_string(),
-        auth_ctx.org_id,
+        auth_ctx.club_id,
         payload.name,
         payload.slug
     )
@@ -94,10 +94,10 @@ pub async fn list_teams(
 ) -> Result<(StatusCode, Json<Vec<Team>>), Response> {
     let teams = sqlx::query_as!(
         Team,
-        r#"SELECT id, org_id, name, slug 
+        r#"SELECT id, club_id, name, slug 
            FROM teams 
-           WHERE org_id = $1"#,
-        auth_ctx.org_id
+           WHERE club_id = $1"#,
+        auth_ctx.club_id
     )
     .fetch_all(&state.pg_pool)
     .await
@@ -114,11 +114,11 @@ pub async fn get_team(
 ) -> Result<(StatusCode, Json<Team>), Response> {
     let team = sqlx::query_as!(
         Team,
-        r#"SELECT id, org_id, name, slug 
+        r#"SELECT id, club_id, name, slug 
            FROM teams 
-           WHERE id = $1 AND org_id = $2"#,
+           WHERE id = $1 AND club_id = $2"#,
         team_id,
-        auth_ctx.org_id
+        auth_ctx.club_id
     )
     .fetch_one(&state.pg_pool)
     .await
@@ -140,8 +140,8 @@ pub async fn update_team(
     Path(team_id): Path<String>,
     Json(payload): Json<UpdateTeamPayload>,
 ) -> Result<(StatusCode, Json<Team>), Response> {
-    // Only OrgAdmin / SuperAdmin may change team data
-    check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin])?;
+    // Only ClubAdmin / SuperAdmin may change team data
+    check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin])?;
 
     // Update name & slug (short_name) only if provided
     let updated = sqlx::query_as!(
@@ -151,13 +151,13 @@ pub async fn update_team(
         SET name = COALESCE($1, name),
             slug = COALESCE($2, slug)
         WHERE id = $3
-          AND org_id = $4
-        RETURNING id, org_id, name, slug
+          AND club_id = $4
+        RETURNING id, club_id, name, slug
         "#,
         payload.name.as_deref(), // $1
         payload.slug.as_deref(), // $2
         team_id,                 // $3
-        auth_ctx.org_id          // $4
+        auth_ctx.club_id         // $4
     )
     .fetch_one(&state.pg_pool)
     .await
@@ -171,12 +171,12 @@ pub async fn delete_team(
     auth_ctx: Extension<AuthContext>,
     Path(team_id): Path<String>,
 ) -> Result<StatusCode, Response> {
-    check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin])?;
+    check_user_roles(&auth_ctx, &[Role::ClubAdmin, Role::SuperAdmin])?;
 
     sqlx::query!(
-        r#"DELETE FROM teams WHERE id = $1 AND org_id = $2"#,
+        r#"DELETE FROM teams WHERE id = $1 AND club_id = $2"#,
         team_id,
-        auth_ctx.org_id
+        auth_ctx.club_id
     )
     .execute(&state.pg_pool)
     .await

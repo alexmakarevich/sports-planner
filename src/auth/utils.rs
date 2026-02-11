@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct AuthContext {
     pub user_id: String,
     pub session_id: String,
-    pub org_id: String,
+    pub club_id: String,
     pub roles: Vec<Role>,
 }
 

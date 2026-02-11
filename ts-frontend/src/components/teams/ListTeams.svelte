@@ -189,7 +189,7 @@
         <tr>
           <th>Name</th>
           <th>Slug</th>
-          <th>Organization ID</th>
+          <th>Club ID</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -198,7 +198,7 @@
           <tr>
             <td>{team.name}</td>
             <td>{team.slug}</td>
-            <td>{team.org_id}</td>
+            <td>{team.club_id}</td>
             <td>
               <button
                 on:click={() => startEdit(team)}

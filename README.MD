@@ -25,7 +25,7 @@ DB: Postgres
   - `docker compose up`
 - migrate DB: `sqlx migrate run`
 - start backend _with initial values_ \
-  `INITIAL_ORG=super_org INITIAL_USER='super_user' INITIAL_PASSWORD='dev_password93837&§!' RUST_LOG=debug,axum::rejection=trace  RUST_BACKTRACE=1 cargo watch -w src -x run`
+  `INITIAL_CLUB=super_club INITIAL_USER='super_user' INITIAL_PASSWORD='dev_password93837&§!' RUST_LOG=debug,axum::rejection=trace  RUST_BACKTRACE=1 cargo watch -w src -x run`
   - (initial values only needed on first start, or after a DB-reset)
 
 ### API-Testing

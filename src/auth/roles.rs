@@ -30,7 +30,7 @@ use crate::{
 pub enum Role {
     SuperAdmin,
 
-    OrgAdmin,
+    ClubAdmin,
 
     Coach,
     Player,
@@ -118,7 +118,7 @@ pub async fn list_role_assignments(
     auth_ctx: Extension<AuthContext>,
     Query(params): Query<Params>,
 ) -> Result<(StatusCode, Json<HashMap<String, Vec<Role>>>), Response> {
-    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin])?;
+    let _ = check_user_roles(&auth_ctx, &[Role::ClubAdmin, Role::SuperAdmin])?;
     let query = match params.user_id {
         Some(user_id) => {
             sqlx::query_as!(
@@ -129,11 +129,11 @@ pub async fn list_role_assignments(
                 FROM role_assignments ra
                 JOIN users u
                 ON ra.user_id = u.id
-                WHERE ra.user_id = $1 AND u.org_id = $2
+                WHERE ra.user_id = $1 AND u.club_id = $2
                 GROUP BY (ra.user_id)
                 "#,
                 user_id,
-                auth_ctx.org_id
+                auth_ctx.club_id
             )
             .fetch_all(&state.pg_pool)
             .await
@@ -147,10 +147,10 @@ pub async fn list_role_assignments(
                 FROM role_assignments ra
                 JOIN users u
                 ON ra.user_id = u.id
-                WHERE u.org_id = $1
+                WHERE u.club_id = $1
                 GROUP BY (ra.user_id)
                 "#,
-                auth_ctx.org_id
+                auth_ctx.club_id
             )
             .fetch_all(&state.pg_pool)
             .await
@@ -185,8 +185,8 @@ pub async fn assign_role(
 
     let _ = sqlx::query_as!(
         UserClean,
-        r#"SELECT id, username FROM users WHERE org_id = $1 AND id = $2"#,
-        auth_ctx.org_id,
+        r#"SELECT id, username FROM users WHERE club_id = $1 AND id = $2"#,
+        auth_ctx.club_id,
         payload.user_id
     )
     .fetch_one(&mut *tx)
@@ -195,7 +195,7 @@ pub async fn assign_role(
         error!("{}", err);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            "Given user not present in your org or doesn't exist",
+            "Given user not present in your club or doesn't exist",
         )
             .into_response()
     })?;
@@ -203,12 +203,12 @@ pub async fn assign_role(
     // access checks
     let _ = match payload.role {
         Role::SuperAdmin => check_user_roles(&auth_ctx, &[Role::SuperAdmin])?,
-        Role::OrgAdmin => check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin])?,
+        Role::ClubAdmin => check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin])?,
         Role::Coach => {
-            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin, Role::Coach])?
+            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin, Role::Coach])?
         }
         Role::Player => {
-            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin, Role::Coach])?
+            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin, Role::Coach])?
         }
     };
 
@@ -235,12 +235,12 @@ pub async fn unassign_role(
     // access checks
     let _ = match payload.role {
         Role::SuperAdmin => check_user_roles(&auth_ctx, &[Role::SuperAdmin])?,
-        Role::OrgAdmin => check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin])?,
+        Role::ClubAdmin => check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin])?,
         Role::Coach => {
-            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin, Role::Coach])?
+            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin, Role::Coach])?
         }
         Role::Player => {
-            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::OrgAdmin, Role::Coach])?
+            check_user_roles(&auth_ctx, &[Role::SuperAdmin, Role::ClubAdmin, Role::Coach])?
         }
     };
 
@@ -251,11 +251,11 @@ pub async fn unassign_role(
             WHERE ra.user_id = $1
             AND ra.role = $3
             AND ra.user_id = u.id
-            AND u.org_id = $2
+            AND u.club_id = $2
         RETURNING ra.id
         "#,
         payload.user_id,
-        auth_ctx.org_id,
+        auth_ctx.club_id,
         payload.role as Role
     )
     .fetch_one(&state.pg_pool)

@@ -1,4 +1,4 @@
-CREATE TYPE user_roles AS ENUM ('super_admin', 'org_admin', 'coach', 'player');
+CREATE TYPE user_roles AS ENUM ('super_admin', 'club_admin', 'coach', 'player');
 
 CREATE TABLE IF NOT EXISTS role_assignments (
     id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),

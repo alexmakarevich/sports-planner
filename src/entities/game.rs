@@ -102,13 +102,13 @@ pub async fn create_game(
     Json(payload): Json<CreateGamePayload>,
 ) -> Result<Response, Response> {
     // Only admins/coaches can create games – keep the same guard
-    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin, Role::Coach])?;
+    let _ = check_user_roles(&auth_ctx, &[Role::ClubAdmin, Role::SuperAdmin, Role::Coach])?;
 
-    // Optional: verify that `payload.team_id` actually belongs to the authenticated org
+    // Optional: verify that `payload.team_id` actually belongs to the authenticated club
     sqlx::query!(
-        "SELECT 1 as ok FROM teams WHERE id = $1 AND org_id = $2",
+        "SELECT 1 as ok FROM teams WHERE id = $1 AND club_id = $2",
         payload.team_id,
-        auth_ctx.org_id
+        auth_ctx.club_id
     )
     .fetch_one(&state.pg_pool)
     .await
@@ -144,10 +144,10 @@ pub async fn create_game(
         JustId,
         r#"SELECT u.id FROM users u
         JOIN role_assignments ra ON ra.user_id = u.id
-        WHERE u.org_id = $1
+        WHERE u.club_id = $1
         AND ra.role = ANY($2)
         ORDER by u.username"#,
-        auth_ctx.org_id,
+        auth_ctx.club_id,
         payload.invited_roles as Vec<Role>
     )
     .fetch_all(&state.pg_pool)
@@ -190,13 +190,13 @@ pub async fn delete_game(
 ) -> Result<Response, Response> {
     debug!("TRYING TO DELETE GAME {}", game_id);
     // Only admins/coaches can delete games
-    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin, Role::Coach])?;
+    let _ = check_user_roles(&auth_ctx, &[Role::ClubAdmin, Role::SuperAdmin, Role::Coach])?;
 
-    // Verify that the game belongs to the authenticated org
+    // Verify that the game belongs to the authenticated club
     let game_exists = sqlx::query!(
-        "SELECT 1 as ok FROM games g JOIN teams t ON g.team_id = t.id WHERE g.id = $1 AND t.org_id = $2",
+        "SELECT 1 as ok FROM games g JOIN teams t ON g.team_id = t.id WHERE g.id = $1 AND t.club_id = $2",
         game_id,
-        auth_ctx.org_id
+        auth_ctx.club_id
     )
     .fetch_optional(&state.pg_pool)
     .await
@@ -236,13 +236,13 @@ pub async fn list_games_for_team(
     Path(team_id): Path<String>,
 ) -> Result<Response, Response> {
     // Only admins/coaches can list games for a team
-    let _ = check_user_roles(&auth_ctx, &[Role::OrgAdmin, Role::SuperAdmin, Role::Coach])?;
+    let _ = check_user_roles(&auth_ctx, &[Role::ClubAdmin, Role::SuperAdmin, Role::Coach])?;
 
-    // Verify that the team belongs to the authenticated org
+    // Verify that the team belongs to the authenticated club
     let team_exists = sqlx::query!(
-        "SELECT 1 as ok FROM teams WHERE id = $1 AND org_id = $2",
+        "SELECT 1 as ok FROM teams WHERE id = $1 AND club_id = $2",
         team_id,
-        auth_ctx.org_id
+        auth_ctx.club_id
     )
     .fetch_optional(&state.pg_pool)
     .await

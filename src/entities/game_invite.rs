@@ -67,10 +67,10 @@ pub async fn list_invites_to_game(
         JOIN games g ON g.id = i.game_id
         JOIN teams t ON t.id = g.team_id  
         WHERE i.game_id = $1
-          AND t.org_id = $2
+          AND t.club_id = $2
         "#,
         game_id,
-        auth_ctx.org_id
+        auth_ctx.club_id
     )
     .fetch_all(&state.pg_pool)
     .await

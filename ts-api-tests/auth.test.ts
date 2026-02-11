@@ -24,7 +24,7 @@ describe(__filename, () => {
     for (const method of [
       () => c.createServiceInvite(),
       () => c.createUser({ username: "", password: "" }),
-      () => c.deleteOwnOrg(),
+      () => c.deleteOwnclub(),
       () => c.deleteOwnUser(),
       () => c.deleteOwnUser(),
       () => c.deleteServiceInviteById("222ede"),

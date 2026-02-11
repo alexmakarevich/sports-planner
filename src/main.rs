@@ -24,14 +24,14 @@ mod utils;
 
 use crate::{
     auth::{
-        auth_routes::{log_in, log_out, sign_up_via_invite, sign_up_with_new_org},
+        auth_routes::{log_in, log_out, sign_up_via_invite, sign_up_with_new_club},
         middlewares::cookie_auth_middleware,
         roles::{assign_role, list_own_role_assignments, list_role_assignments, unassign_role},
     },
     entities::{
+        club::delete_own_club,
         game::game_router,
         game_invite::{answer_invite_to_game, list_invites_to_game, list_own_game_invites},
-        org::delete_own_org,
         service_invite::{create_service_invite, delete_service_invite_by_id},
         team::team_router,
         user::{create_user, delete_own_user, delete_user_by_id, list_users},
@@ -93,10 +93,18 @@ async fn main() {
     fn unprotected_api_routes<S>(state: AppState) -> Router<S> {
         Router::new()
             .route("/log-in", post(log_in))
-            .route("/sign-up-with-new-org", post(sign_up_with_new_org))
+            .route("/sign-up-with-new-club", post(sign_up_with_new_club))
             .route("/sign-up-via-invite/{invite_id}", post(sign_up_via_invite))
             .with_state(state)
     }
+
+    // TODO: postgres Row Level Security
+    // TODO: separate global admin routes, or cleverly use RLS within existing routes
+    //       most likely: duplicate the API behind a difft parent router like "global" with a difft middleware
+    //       though with RLS we may even be able to avoid that
+    // TODO: after global routes are done, remove global admins from regular club structure, don't need to create initial org.
+    //       global admins are special users with a different set of properties and permissions
+    //       stored as a different entity altogether
 
     fn protected_api_routes<S>(state: AppState) -> Router<S> {
         Router::new()
@@ -105,12 +113,12 @@ async fn main() {
             .route("/users/create", post(create_user))
             .route("/users/delete-by-id/{id}", delete(delete_user_by_id))
             .route("/users/delete-own", delete(delete_own_user))
-            .route("/invites-to-org/create", post(create_service_invite))
+            .route("/invites-to-club/create", post(create_service_invite))
             .route(
-                "/invites-to-org/delete-by-id/{id}",
+                "/invites-to-club/delete-by-id/{id}",
                 delete(delete_service_invite_by_id),
             )
-            .route("/orgs/delete-own", delete(delete_own_org))
+            .route("/clubs/delete-own", delete(delete_own_club))
             //
             .route("/roles/list", get(list_role_assignments))
             .route("/roles/list-own", get(list_own_role_assignments))

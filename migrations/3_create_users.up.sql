@@ -2,13 +2,13 @@ CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
   username text     NOT NULL UNIQUE,
   password  text    NOT NULL,
-  org_id VARCHAR(36)  NOT NULL,
+  club_id VARCHAR(36)  NOT NULL,
 
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_org
-    FOREIGN KEY(org_id)
-	  REFERENCES orgs(id)
+  CONSTRAINT fk_club
+    FOREIGN KEY(club_id)
+	  REFERENCES clubs(id)
 	  ON DELETE RESTRICT
 );

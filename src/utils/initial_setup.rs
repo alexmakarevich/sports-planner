@@ -1,10 +1,10 @@
 use log::error;
 use sqlx::{Pool, Postgres};
 
-use crate::entities::org::create_org;
+use crate::entities::club::create_club;
 
 pub async fn initial_setup(pool: &Pool<Postgres>) {
-    let initial_org_title = dotenv::var("INITIAL_ORG").expect("INITIAL_ORG is not configured");
+    let initial_club_title = dotenv::var("INITIAL_CLUB").expect("INITIAL_CLUB is not configured");
     let initial_user_name =
         dotenv::var("INITIAL_USER").expect("INITIAL_USERNAME is not configured");
     let initial_user_password =
@@ -14,15 +14,15 @@ pub async fn initial_setup(pool: &Pool<Postgres>) {
         panic!("could not start init transaction")
     };
 
-    let Ok(created_org_id) = create_org(&mut tx, &initial_org_title).await else {
-        panic!("could not create initial org")
+    let Ok(created_club_id) = create_club(&mut tx, &initial_club_title).await else {
+        panic!("could not create initial club")
     };
 
     let Ok(created_user) = sqlx::query!(
-        r#"INSERT INTO users (username, password, org_id) VALUES ($1, $2, $3) RETURNING id"#,
+        r#"INSERT INTO users (username, password, club_id) VALUES ($1, $2, $3) RETURNING id"#,
         initial_user_name,
         initial_user_password,
-        created_org_id,
+        created_club_id,
     )
     .fetch_one(&mut *tx)
     .await

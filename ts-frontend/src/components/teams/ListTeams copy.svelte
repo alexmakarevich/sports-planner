@@ -114,7 +114,7 @@
         <tr>
           <th>Name</th>
           <th>Slug</th>
-          <th>Organization ID</th>
+          <th>Club ID</th>
         </tr>
       </thead>
       <tbody>
@@ -122,7 +122,7 @@
           <tr>
             <td>{team.name}</td>
             <td>{team.slug}</td>
-            <td>{team.org_id}</td>
+            <td>{team.club_id}</td>
           </tr>
         {/each}
       </tbody>
