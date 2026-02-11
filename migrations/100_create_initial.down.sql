@@ -7,6 +7,8 @@ DROP TABLE IF EXISTS teams;
 DROP TABLE IF EXISTS service_invites;
 DROP TABLE IF EXISTS role_assignments;
 DROP TYPE IF EXISTS user_roles;
+DROP TABLE IF EXISTS global_role_assignments;
+DROP TYPE IF EXISTS global_roles;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS clubs;

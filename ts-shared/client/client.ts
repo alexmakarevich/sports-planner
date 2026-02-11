@@ -41,26 +41,28 @@ export type ClientKind = "node" | "browser";
 export class Client {
   cookie: string;
   axios: AxiosInstance;
-  API_URL: string;
   kind: ClientKind;
   allCookies: string[];
   constructor({
     cookie,
     API_URL,
     kind,
+    isGlobalAdmin,
   }: {
     cookie: string;
     API_URL: string;
     kind: ClientKind;
+    isGlobalAdmin?: boolean;
   }) {
     this.cookie = cookie;
-    this.API_URL = API_URL;
+    const protectedPrefix = isGlobalAdmin ? "/admin" : "/user";
+    const baseURL = API_URL + protectedPrefix;
     this.kind = kind;
     this.allCookies = [this.cookie];
 
     if (kind === "node") {
       this.axios = axios.create({
-        baseURL: API_URL,
+        baseURL,
         withCredentials: true,
       });
 
@@ -85,7 +87,7 @@ export class Client {
       });
     } else {
       // browser
-      this.axios = axios.create({ baseURL: API_URL, withCredentials: true });
+      this.axios = axios.create({ baseURL, withCredentials: true });
     }
   }
 
@@ -199,7 +201,7 @@ export class Client {
   async listTeams(): Promise<Team[]> {
     const { data } = await this.axios({
       method: "get",
-      url: `${this.API_URL}/teams/list`,
+      url: `/teams/list`,
     });
     return this.listTeamsResponseSchema.parse(data);
   }
@@ -207,7 +209,7 @@ export class Client {
   async getTeam(id: string): Promise<Team> {
     const { data } = await this.axios({
       method: "get",
-      url: `${this.API_URL}/teams/get/${id}`,
+      url: `/teams/get/${id}`,
     });
     return this.teamSchema.parse(data);
   }
@@ -215,7 +217,7 @@ export class Client {
   async createTeam(payload: { name: string; slug: string }): Promise<string> {
     const { data } = await this.axios({
       method: "post",
-      url: `${this.API_URL}/teams/create`,
+      url: `/teams/create`,
       data: payload,
     });
     return z.string().parse(data);
@@ -227,7 +229,7 @@ export class Client {
   ): Promise<Team> {
     const { data } = await this.axios({
       method: "put",
-      url: `${this.API_URL}/teams/update/${id}`,
+      url: `/teams/update/${id}`,
       data: payload,
     });
     return this.teamSchema.parse(data);
@@ -239,7 +241,7 @@ export class Client {
   async deleteTeamById(id: string): Promise<void> {
     await this.axios({
       method: "delete",
-      url: `${this.API_URL}/teams/delete-by-id/${id}`,
+      url: `/teams/delete-by-id/${id}`,
     });
   }
 

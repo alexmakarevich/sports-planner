@@ -25,7 +25,7 @@ mod utils;
 use crate::{
     auth::{
         auth_routes::{log_in, log_out, sign_up_via_invite, sign_up_with_new_club},
-        middlewares::cookie_auth_middleware,
+        middlewares::{admin_cookie_auth_middleware, cookie_auth_middleware},
         roles::{assign_role, list_own_role_assignments, list_role_assignments, unassign_role},
     },
     entities::{
@@ -87,7 +87,7 @@ async fn main() {
         .nest("/api", api_routes(state.clone()))
         .fallback_service(ReverseProxy::new("/", "http://localhost:5173")) // FWds reqs to the dev server of the FE - TODO: to be replaced with compiled static frontend assets later
         .layer(ServiceBuilder::new().layer(middleware::from_fn(logging_middleware)))
-        .layer(CorsLayer::permissive()) // TODO: replace with real
+        .layer(CorsLayer::permissive()) // TODO: replace with real strict CORS config
         .with_state(state);
 
     fn unprotected_api_routes<S>(state: AppState) -> Router<S> {
@@ -136,17 +136,26 @@ async fn main() {
             )
             .route("/game-invites/respond", post(answer_invite_to_game))
             //
-            .layer(middleware::from_fn_with_state(
-                state.clone(),
-                cookie_auth_middleware,
-            ))
             .with_state(state)
     }
 
     fn api_routes<S>(state: AppState) -> Router<S> {
         Router::new()
-            .merge(protected_api_routes(state.clone()))
-            .merge(unprotected_api_routes(state.clone()))
+            .nest(
+                "/user",
+                protected_api_routes(state.clone()).layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    cookie_auth_middleware,
+                )),
+            )
+            .nest(
+                "/admin",
+                protected_api_routes(state.clone()).layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    admin_cookie_auth_middleware,
+                )),
+            )
+            .nest("/auth", unprotected_api_routes(state.clone()))
             .with_state(state)
     }
 

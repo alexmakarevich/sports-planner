@@ -9,12 +9,14 @@ export class TestClient extends Client {
     cookie,
     ownId,
     testId,
+    isGlobalAdmin,
   }: {
     cookie: string;
     ownId: string;
     testId: string;
+    isGlobalAdmin?: boolean;
   }) {
-    super({ cookie, API_URL, kind: "node" });
+    super({ cookie, API_URL, kind: "node", isGlobalAdmin });
     this.ownId = ownId;
 
     console.log("new Test Client", { cookie });

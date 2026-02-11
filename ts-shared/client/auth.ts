@@ -4,23 +4,17 @@ import { ClientKind } from "./client";
 
 const loginResSchema = z.string();
 
+const AUTH_PREFIX = "/auth";
+
 export type LoginResult = { ownId: string; cookie: string };
 
 export class AuthUtils {
   axios: (x: AxiosRequestConfig) => AxiosPromise;
   API_URL: string;
   kind: ClientKind;
-  constructor({
-    axiosOverride,
-    API_URL,
-    kind,
-  }: {
-    axiosOverride?: (x: AxiosRequestConfig) => AxiosPromise;
-    API_URL: string;
-    kind: ClientKind;
-  }) {
-    this.axios = axiosOverride ?? axios.create();
+  constructor({ API_URL, kind }: { API_URL: string; kind: ClientKind }) {
     this.API_URL = API_URL;
+    this.axios = axios.create({ baseURL: API_URL + AUTH_PREFIX });
     this.kind = kind;
   }
 
@@ -31,9 +25,9 @@ export class AuthUtils {
     username: string;
     password: string;
   }): Promise<LoginResult> => {
-    const { status, data, headers } = await axios({
+    const { data, headers } = await this.axios({
       method: "POST",
-      url: this.API_URL + "/log-in",
+      url: "/log-in",
       data: {
         username,
         password,
@@ -67,9 +61,9 @@ export class AuthUtils {
     password: string;
     clubTitle: string;
   }): Promise<LoginResult> => {
-    const { status, data, headers } = await axios({
+    const { status, data, headers } = await this.axios({
       method: "POST",
-      url: this.API_URL + "/sign-up-with-new-club",
+      url: "/sign-up-with-new-club",
       data: {
         username,
         password,
@@ -105,9 +99,9 @@ export class AuthUtils {
     password: string;
     inviteId: string;
   }): Promise<LoginResult> => {
-    const { status, data, headers } = await axios({
+    const { status, data, headers } = await this.axios({
       method: "POST",
-      url: this.API_URL + "/sign-up-via-invite/" + inviteId,
+      url: "/sign-up-via-invite/" + inviteId,
       data: {
         username,
         password,

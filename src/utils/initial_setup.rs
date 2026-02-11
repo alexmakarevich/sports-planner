@@ -30,6 +30,17 @@ pub async fn initial_setup(pool: &Pool<Postgres>) {
         panic!("could not create initial user")
     };
 
+    // let Ok(initial_global_user) = sqlx::query!(
+    //     r#"INSERT INTO global_users (username, password) VALUES ($1, $2) RETURNING id"#,
+    //     initial_user_name,
+    //     initial_user_password,
+    // )
+    // .fetch_one(&mut *tx)
+    // .await
+    // else {
+    //     panic!("could not create initial global user")
+    // };
+
     // role assginment
     let _ = sqlx::query!(
         r#"INSERT INTO role_assignments (user_id, role) VALUES ($1, 'super_admin')"#,
@@ -40,6 +51,18 @@ pub async fn initial_setup(pool: &Pool<Postgres>) {
     .map_err(|err| {
         error!("{}", err);
         panic!("could not create initial role assignment")
+    });
+
+    // global role assignment
+    let _ = sqlx::query!(
+        r#"INSERT INTO global_role_assignments (user_id, role) VALUES ($1, 'admin')"#,
+        created_user.id,
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(|err| {
+        error!("{}", err);
+        panic!("could not create initial GLOBAL role assignment")
     });
 
     let _ = sqlx::query!("UPDATE config SET is_initialized=TRUE",)

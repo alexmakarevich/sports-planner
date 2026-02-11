@@ -52,12 +52,31 @@ CREATE TABLE IF NOT EXISTS sessions (
 	    ON DELETE CASCADE
 );
 
+-- TODO: replace with global roles, club_roles, team_roles
 CREATE TYPE user_roles AS ENUM ('super_admin', 'club_admin', 'coach', 'player');
 
 CREATE TABLE IF NOT EXISTS role_assignments (
     id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     user_id VARCHAR(36)  NOT NULL,
     role user_roles NOT NULL,
+  
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (user_id, role),
+    CONSTRAINT fk_user
+        FOREIGN KEY(user_id)
+	    REFERENCES users(id)
+	    ON DELETE CASCADE
+);
+
+-- roles on the level of the whole service
+CREATE TYPE global_roles AS ENUM ('admin', 'user');
+
+CREATE TABLE IF NOT EXISTS global_role_assignments (
+    id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    user_id VARCHAR(36)  NOT NULL,
+    role global_roles NOT NULL,
   
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

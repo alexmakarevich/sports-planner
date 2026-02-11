@@ -42,7 +42,7 @@ describe(__filename, () => {
     }
   });
 
-  it.only("performs cookie lifecycle", async () => {
+  it("performs cookie lifecycle", async () => {
     const { cookie: conductorCookie, ownId } =
       await testAuthUtils.logInConductorUser();
     console.log(conductorCookie);
@@ -63,11 +63,21 @@ describe(__filename, () => {
 
     expect(Math.round(diff)).toEqual(7);
 
-    const client = new TestClient({ cookie: conductorCookie, ownId, testId });
+    const client = new TestClient({
+      cookie: conductorCookie,
+      ownId,
+      testId,
+      isGlobalAdmin: true,
+    });
+
+    await client.listTeams();
+    await client.listUsers();
+    await client.listRoles();
+
     await client.logOut();
 
     const { status, data, headers } = await axios({
-      url: API_URL + "/users/list",
+      url: API_URL + "/user/users/list",
       headers: {
         Cookie: conductorCookie,
       },
