@@ -92,6 +92,26 @@
     showForm = false;
     formError = null;
   }
+
+  async function deleteTeam(teamId: string) {
+    if (!confirm("Are you sure you want to delete this team?")) {
+      return;
+    }
+
+    try {
+      await frontendClient.deleteTeamById(teamId);
+      await loadTeams();
+      globalToaster.add({
+        type: "success",
+        message: "Team deleted successfully",
+      });
+    } catch (err) {
+      globalToaster.add({
+        type: "failure",
+        message: "Failed to delete team",
+      });
+    }
+  }
 </script>
 
 <main>
@@ -185,6 +205,12 @@
                 disabled={showForm && editingTeamId !== team.id}
               >
                 Edit
+              </button>
+              <button
+                on:click={() => deleteTeam(team.id)}
+                disabled={showForm && editingTeamId !== team.id}
+              >
+                Delete
               </button>
             </td>
           </tr>
