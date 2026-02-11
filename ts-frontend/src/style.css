@@ -1,0 +1,167 @@
+:root {
+  box-sizing: border-box;
+  --pico-del-color: red
+}
+
+.red {
+  background-color: red;
+}
+
+.green {
+  background-color: green;
+}
+
+.failure {
+  background-color: rgb(112, 35, 35);
+}
+
+.success {
+  background-color: rgb(47, 128, 58);
+}
+
+.info {
+  background-color: rgb(61, 76, 90);
+}
+
+.auto-hide {
+  animation: basic-hide 10s forwards;
+}
+
+@keyframes basic-hide {
+  0% {
+    opacity: 100%;
+  }
+
+  80% {
+    opacity: 100%;
+  }
+
+  to {
+    opacity: 0;
+    display: none;
+  }
+}
+
+#app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+header {
+  text-align: center;
+  width: 100%;
+}
+
+footer {
+  padding: 2rem 2rem;
+  width: 100%;
+  max-width: 96rem;
+}
+
+.main-menu {
+  display: inline-flex;
+  padding: 1rem 2rem;
+  width: 100%;
+  max-width: 96rem;
+  background-color: dark-gray;
+}
+
+.main-menu>* {
+  padding: 1rem;
+}
+
+.main-menu a {
+  text-decoration: none;
+}
+
+.delete {
+  background-color: rgb(158, 56, 56);
+  color: antiquewhite;
+  border: none;
+}
+
+.select-ul {
+  display: flex;
+  padding: 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.participants-ul {
+  display: flex;
+  padding: 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.select-li {
+  list-style: none;
+  display: flex;
+  margin: 0.5rem;
+  font-size: smaller;
+}
+
+.select-content {
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  background-color: rgb(65, 65, 65);
+  border-radius: 5px 0 0 5px;
+  opacity: 50%;
+}
+
+.participants-content {
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  background-color: rgb(78, 78, 78);
+  border-radius: 5px 0 0 5px;
+}
+
+.select-delete {
+  border-radius: 0 5px 5px 0;
+  opacity: 50%;
+  font-size: smaller;
+}
+
+article {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+main {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 80rem;
+}
+
+.standard-box {
+  margin: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  
+  flex-grow: 1;
+  flex-basis: 30rem;
+  flex-shrink: 0;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+}
+
+footer {
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.date-time-field {
+  margin: 0 0 var(--pico-spacing);
+  input {
+    background: var(--pico-form-element-background-color);
+  }
+}
+

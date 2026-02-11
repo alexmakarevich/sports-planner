@@ -160,7 +160,10 @@ pub async fn sign_up_with_new_org(
     let cookie = Cookie::build(("session_id", session_id.clone()))
         .secure(true)
         .http_only(true)
-        .same_site(SameSite::Strict)
+        .same_site(SameSite::None)
+        .domain("localhost")
+        // .domain("localhost:3333")
+        // .domain("localhost:5173")
         .expires(OffsetDateTime::now_utc() + Duration::days(7));
     let mut headers = HeaderMap::new();
     headers.insert(SET_COOKIE, cookie.to_string().parse().unwrap());

@@ -5,11 +5,13 @@ use axum::{
     routing::{delete, get, post},
     Router, ServiceExt,
 };
+use axum_reverse_proxy::ReverseProxy;
 use dotenv::dotenv;
 use log::{error, info};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceBuilder;
+use tower_http::cors::CorsLayer;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
 
@@ -83,7 +85,9 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .nest("/api", api_routes(state.clone()))
+        .fallback_service(ReverseProxy::new("/", "http://localhost:5173")) // FWds reqs to the dev server of the FE - TODO: to be replaced with compiled static frontend assets later
         .layer(ServiceBuilder::new().layer(middleware::from_fn(logging_middleware)))
+        .layer(CorsLayer::permissive()) // TODO: replace with real
         .with_state(state);
 
     fn unprotected_api_routes<S>(state: AppState) -> Router<S> {
