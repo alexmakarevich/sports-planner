@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { frontendClient } from "../../client/fe-client";
   import type { Team } from "ts-shared";
+  import { globalToaster } from "../global/toaster.svelte";
   let teams: Team[] = [];
   let loading = true;
   let error: string | null = null;
@@ -106,7 +107,12 @@
         <legend>{editingTeamId ? "Edit Team" : "New Team"}</legend>
 
         {#if formError}
-          <p role="alert">{formError}</p>
+          {globalToaster.add({
+            type: "failure",
+            message: editingTeamId
+              ? "could not edit team"
+              : "could not create team",
+          })}
         {/if}
 
         <div>
@@ -154,7 +160,7 @@
   {#if loading}
     <p>Loading teams...</p>
   {:else if error}
-    <p role="alert">{error}</p>
+    {globalToaster.add({ type: "failure", message: "could not load teams" })}
   {:else if teams.length === 0}
     <p>No teams found.</p>
   {:else}
