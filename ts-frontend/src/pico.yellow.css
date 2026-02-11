@@ -235,7 +235,7 @@ details summary[role=button]:not(.outline)::after {
   --pico-primary-border: var(--pico-primary-background);
   --pico-primary-underline: rgba(117, 107, 0, 0.5);
   --pico-primary-hover: #5b5300;
-  --pico-primary-hover-background: #e8d600;
+  --pico-primary-hover-background: #c4b731;
   --pico-primary-hover-border: var(--pico-primary-hover-background);
   --pico-primary-hover-underline: var(--pico-primary-hover);
   --pico-primary-focus: rgba(158, 146, 0, 0.5);
@@ -351,7 +351,7 @@ details summary[role=button]:not(.outline)::after {
     --pico-muted-color: #7b8495;
     --pico-muted-border-color: #202632;
     --pico-primary: #ad9f00;
-    --pico-primary-background: #f2df0d;
+  --pico-primary-background: #b4aa34;
     --pico-primary-border: var(--pico-primary-background);
     --pico-primary-underline: rgba(173, 159, 0, 0.5);
     --pico-primary-hover: #caba01;
@@ -474,7 +474,7 @@ details summary[role=button]:not(.outline)::after {
   --pico-muted-color: #7b8495;
   --pico-muted-border-color: #202632;
   --pico-primary: #ad9f00;
-  --pico-primary-background: #f2df0d;
+  --pico-primary-background: #b4aa34;
   --pico-primary-border: var(--pico-primary-background);
   --pico-primary-underline: rgba(173, 159, 0, 0.5);
   --pico-primary-hover: #caba01;
