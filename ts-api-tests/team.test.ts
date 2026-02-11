@@ -1,18 +1,19 @@
-import { Client } from "./utils/client";
-import { logIn, makeTestId, signUpWithNewOrg } from "./utils";
+import { testAuthUtils } from "./utils/auth";
+import { TestClient } from "./utils/test-client";
+import { makeTestId } from "./utils/general";
 
 const { testId } = makeTestId();
 
 describe(__filename, () => {
   it("CRUD team entity (admin) and permission checks (regular user)", async () => {
     // Create a brand‑new org – this gives us an org‑admin user
-    const adminDetails = await signUpWithNewOrg({
+    const adminDetails = await testAuthUtils.signUpWithNewOrg({
       username: `admin-${testId}`,
       password: `admin-pass-${testId}`,
       orgTitle: `test-org-${testId}`,
     });
 
-    const orgAdminClient = new Client({ ...adminDetails, isTest: true });
+    const orgAdminClient = new TestClient({ ...adminDetails, testId });
 
     // ---- Admin can create a team ---------------------------------------
     const teamName = `team-${testId}`;
@@ -78,12 +79,12 @@ describe(__filename, () => {
       password: `user-pass-${testId}`,
     });
 
-    const userLogin = await logIn({
+    const userLogin = await testAuthUtils.logIn({
       username: `user-${testId}`,
       password: `user-pass-${testId}`,
     });
 
-    const userClient = new Client({ ...userLogin, isTest: true });
+    const userClient = new TestClient({ ...userLogin, testId });
 
     await expect(
       userClient.createTeam({

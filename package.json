@@ -1,0 +1,9 @@
+{
+  "name": "ts-workspaces",
+  "private": true,
+  "workspaces":  [
+    "ts-shared",
+    "ts-api-tests",
+    "ts-frontend"
+  ]
+}

@@ -1,6 +1,7 @@
-import { logIn, makeTestId, signUpViaInvite, signUpWithNewOrg } from "./utils";
-import { Client } from "./utils/client";
+import { makeTestId } from "./utils/general";
+import { TestClient } from "./utils/test-client";
 import { randomUUID } from "crypto";
+import { testAuthUtils } from "./utils/auth";
 
 const { testId } = makeTestId();
 
@@ -18,15 +19,15 @@ const invitedUserPassword = regularUserName;
 
 describe(__filename, () => {
   it("does it all...", async () => {
-    const neworg_adminDetails = await signUpWithNewOrg({
+    const neworg_adminDetails = await testAuthUtils.signUpWithNewOrg({
       username: adminUsername,
       password: adminPassword,
       orgTitle: "test-org-" + testId,
     });
 
-    const orgAdminClient = new Client({
+    const orgAdminClient = new TestClient({
       ...neworg_adminDetails,
-      isTest: true,
+      testId,
     });
 
     const ownRolesOfAdmin = await orgAdminClient.listOwnRoles();
@@ -42,14 +43,14 @@ describe(__filename, () => {
       password: regularUserPassword,
     });
 
-    let regularUserDetails = await logIn({
+    let regularUserDetails = await testAuthUtils.logIn({
       username: regularUserName,
       password: regularUserPassword,
     });
 
-    let regularUserClient = new Client({
+    let regularUserClient = new TestClient({
       ...regularUserDetails,
-      isTest: true,
+      testId,
     });
 
     expect(regularUserClient.listOwnRoles()).resolves.toEqual([]);
@@ -144,13 +145,13 @@ describe(__filename, () => {
 
     const serviceInviteId = await orgAdminClient.createServiceInvite();
 
-    const inviteUserDetails = await signUpViaInvite({
+    const inviteUserDetails = await testAuthUtils.signUpViaInvite({
       username: invitedUserName,
       password: invitedUserPassword,
       inviteId: serviceInviteId,
     });
 
-    const invitedClient = new Client(inviteUserDetails);
+    const invitedClient = new TestClient({ ...inviteUserDetails, testId });
 
     const usersListed = await invitedClient.listUsers();
     console.log({ usersListed });
@@ -177,14 +178,14 @@ describe(__filename, () => {
     });
 
     // re-login after logout
-    regularUserDetails = await logIn({
+    regularUserDetails = await testAuthUtils.logIn({
       username: regularUserName,
       password: regularUserPassword,
     });
 
-    regularUserClient = new Client({
+    regularUserClient = new TestClient({
       ...regularUserDetails,
-      isTest: true,
+      testId,
     });
 
     let regularUserInvites = await regularUserClient.listOwnInvites();

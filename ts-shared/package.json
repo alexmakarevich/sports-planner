@@ -1,0 +1,20 @@
+{
+  "name": "ts-shared",
+  "dependencies": {
+    "@types/luxon": "^3.7.1",
+    "axios": "^1.12.2",
+    "axios-cookiejar-support": "^6.0.5",
+    "dotenv": "^17.2.3",
+    "jest": "^30.2.0",
+    "luxon": "^3.7.2",
+    "tough-cookie": "^6.0.0",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
+    "ts-jest": "^29.4.4",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {}
+}

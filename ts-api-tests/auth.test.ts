@@ -1,16 +1,10 @@
-import {
-  logIn,
-  logInConductorUser,
-  makeTestId,
-  signUpViaInvite,
-  signUpWithNewOrg,
-} from "./utils";
-import { Client } from "./utils/client";
-import { randomUUID } from "crypto";
-import axios, { AxiosError, AxiosResponse } from "axios";
+import { makeTestId } from "./utils/general";
+import { TestClient } from "./utils/test-client";
+import axios from "axios";
 import { DateTime } from "luxon";
 import { API_URL } from "./utils/env";
 import { log } from "console";
+import { testAuthUtils } from "./utils/auth";
 
 const { testId } = makeTestId();
 
@@ -25,7 +19,7 @@ const invitedUserPassword = regularUserName;
 describe(__filename, () => {
   it("denies req with no cookie", async () => {
     // @ts-expect-error
-    const c = new Client({ cookie: undefined });
+    const c = new TestClient({ cookie: undefined, testId });
 
     for (const method of [
       () => c.createServiceInvite(),
@@ -48,8 +42,9 @@ describe(__filename, () => {
     }
   });
 
-  it("performs cookie lifecycle", async () => {
-    const { cookie: conductorCookie, ownId } = await logInConductorUser();
+  it.only("performs cookie lifecycle", async () => {
+    const { cookie: conductorCookie, ownId } =
+      await testAuthUtils.logInConductorUser();
     console.log(conductorCookie);
     expect(conductorCookie.slice(0, 11)).toEqual("session_id=");
     expect(conductorCookie.slice(11, 27)).not.toMatch(";");
@@ -68,7 +63,7 @@ describe(__filename, () => {
 
     expect(Math.round(diff)).toEqual(7);
 
-    const client = new Client({ cookie: conductorCookie, ownId });
+    const client = new TestClient({ cookie: conductorCookie, ownId, testId });
     await client.logOut();
 
     const { status, data, headers } = await axios({

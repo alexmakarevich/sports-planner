@@ -1,8 +1,6 @@
-import axios, { AxiosPromise, AxiosRequestConfig } from "axios";
-import { API_URL } from "./env";
-import { makeTestAxios } from "../utils";
+import axios, { AxiosInstance, AxiosPromise, AxiosRequestConfig } from "axios";
+
 import z from "zod";
-import { log } from "console";
 
 z.config({
   customError: (issue) => {
@@ -38,26 +36,57 @@ export type Team = {
   slug: string;
 };
 
+export type ClientKind = "node" | "browser";
+
 export class Client {
   cookie: string;
-  ownId: string;
-  axios: (x: AxiosRequestConfig) => AxiosPromise;
+  axios: AxiosInstance;
+  API_URL: string;
+  kind: ClientKind;
+  allCookies: string[];
   constructor({
     cookie,
-    isTest,
-    ownId,
+    API_URL,
+    kind,
   }: {
     cookie: string;
-    isTest?: true;
-    ownId: string;
+    API_URL: string;
+    kind: ClientKind;
   }) {
-    console.log("new Client", { cookie, isTest });
-
     this.cookie = cookie;
-    this.ownId = ownId;
-    this.axios = isTest
-      ? makeTestAxios(axios.create({ headers: { Cookie: cookie } }))
-      : axios.create({ headers: { Cookie: cookie } });
+    this.API_URL = API_URL;
+    this.kind = kind;
+    this.allCookies = [this.cookie];
+
+    if (kind === "node") {
+      this.axios = axios.create({
+        baseURL: API_URL,
+        withCredentials: true,
+      });
+
+      this.axios.interceptors.request.use((config) => {
+        // naively setting all cookies
+        // TODO: stricter
+        if (this.allCookies.length > 0) {
+          config.headers.Cookie = this.allCookies.join("; ");
+        }
+        return config;
+      });
+
+      this.axios.interceptors.response.use((response) => {
+        // naively setting all cookies
+        // TODO: stricter
+
+        const setCookie = response.headers["set-cookie"];
+        if (setCookie) {
+          this.allCookies = setCookie;
+        }
+        return response;
+      });
+    } else {
+      // browser
+      this.axios = axios.create({ baseURL: API_URL, withCredentials: true });
+    }
   }
 
   // USER
@@ -71,7 +100,7 @@ export class Client {
   }) {
     const { data } = await this.axios({
       method: "POST",
-      url: API_URL + "/users/create",
+      url: "/users/create",
       data: {
         username,
         password,
@@ -82,7 +111,7 @@ export class Client {
 
   async listUsers() {
     const { status, data } = await this.axios({
-      url: API_URL + "/users/list",
+      url: "/users/list",
     });
     return listUsersResponseSchema.parse(data);
   }
@@ -90,14 +119,14 @@ export class Client {
   async deleteUserById(id: string) {
     await this.axios({
       method: "DELETE",
-      url: API_URL + "/users/delete-by-id/" + id,
+      url: "/users/delete-by-id/" + id,
     });
   }
 
   async deleteOwnUser() {
     await this.axios({
       method: "DELETE",
-      url: API_URL + "/users/delete-own",
+      url: "/users/delete-own",
     });
   }
 
@@ -106,7 +135,7 @@ export class Client {
   async listRoles() {
     const { data } = await this.axios({
       method: "GET",
-      url: API_URL + "/roles/list",
+      url: "/roles/list",
     });
     return listRolesResSchema.parse(data);
   }
@@ -114,7 +143,7 @@ export class Client {
   async listOwnRoles() {
     const { data } = await this.axios({
       method: "GET",
-      url: API_URL + "/roles/list-own",
+      url: "/roles/list-own",
     });
     return z.array(roleSchema).parse(data);
   }
@@ -122,7 +151,7 @@ export class Client {
   async assignRole({ user_id, role }: { user_id: string; role: Role }) {
     await this.axios({
       method: "POST",
-      url: API_URL + "/roles/assign",
+      url: "/roles/assign",
       data: { user_id, role },
     });
   }
@@ -130,7 +159,7 @@ export class Client {
   async unassignRole({ user_id, role }: { user_id: string; role: Role }) {
     await this.axios({
       method: "DELETE",
-      url: API_URL + "/roles/unassign",
+      url: "/roles/unassign",
       data: { user_id, role },
     });
   }
@@ -144,7 +173,7 @@ export class Client {
   async createServiceInvite(): Promise<string> {
     const { data } = await this.axios({
       method: "POST",
-      url: API_URL + "/invites-to-org/create",
+      url: "/invites-to-org/create",
     });
     return z.string().parse(data);
   }
@@ -152,7 +181,7 @@ export class Client {
   async deleteServiceInviteById(id: string) {
     await this.axios({
       method: "DELETE",
-      url: API_URL + "/invites-to-org/delete-by-id/" + id,
+      url: "/invites-to-org/delete-by-id/" + id,
     });
   }
 
@@ -170,7 +199,7 @@ export class Client {
   async listTeams(): Promise<Team[]> {
     const { data } = await this.axios({
       method: "get",
-      url: `${API_URL}/teams/list`,
+      url: `${this.API_URL}/teams/list`,
     });
     return this.listTeamsResponseSchema.parse(data);
   }
@@ -178,7 +207,7 @@ export class Client {
   async getTeam(id: string): Promise<Team> {
     const { data } = await this.axios({
       method: "get",
-      url: `${API_URL}/teams/get/${id}`,
+      url: `${this.API_URL}/teams/get/${id}`,
     });
     return this.teamSchema.parse(data);
   }
@@ -186,7 +215,7 @@ export class Client {
   async createTeam(payload: { name: string; slug: string }): Promise<string> {
     const { data } = await this.axios({
       method: "post",
-      url: `${API_URL}/teams/create`,
+      url: `${this.API_URL}/teams/create`,
       data: payload,
     });
     return z.string().parse(data);
@@ -198,7 +227,7 @@ export class Client {
   ): Promise<Team> {
     const { data } = await this.axios({
       method: "put",
-      url: `${API_URL}/teams/update/${id}`,
+      url: `${this.API_URL}/teams/update/${id}`,
       data: payload,
     });
     return this.teamSchema.parse(data);
@@ -210,7 +239,7 @@ export class Client {
   async deleteTeamById(id: string): Promise<void> {
     await this.axios({
       method: "delete",
-      url: `${API_URL}/teams/delete-by-id/${id}`,
+      url: `${this.API_URL}/teams/delete-by-id/${id}`,
     });
   }
 
@@ -235,7 +264,7 @@ export class Client {
   }) {
     const { data } = await this.axios({
       method: "POST",
-      url: API_URL + "/games/create",
+      url: "/games/create",
       data: {
         team_id,
         opponent,
@@ -252,7 +281,7 @@ export class Client {
   async deleteGame(gameId: string) {
     await this.axios({
       method: "DELETE",
-      url: API_URL + "/games/delete-by-id/" + gameId,
+      url: "/games/delete-by-id/" + gameId,
     });
   }
 
@@ -272,10 +301,9 @@ export class Client {
   async listGamesForTeam(teamId: string) {
     const { data } = await this.axios({
       method: "GET",
-      url: API_URL + "/games/list-for-team/" + teamId,
+      url: "/games/list-for-team/" + teamId,
     });
 
-    log({ raw: data });
     return this.listGamesResponse.parse(data);
   }
 
@@ -284,7 +312,7 @@ export class Client {
   async listOwnInvites() {
     const { data } = await this.axios({
       method: "GET",
-      url: API_URL + "/game-invites/list-own",
+      url: "/game-invites/list-own",
     });
     return listOwnInvitesResSchema.parse(data);
   }
@@ -292,7 +320,7 @@ export class Client {
   async listInvitesToGame(game_id: string) {
     const { data } = await this.axios({
       method: "GET",
-      url: API_URL + "/game-invites/list-to-game/" + game_id,
+      url: "/game-invites/list-to-game/" + game_id,
     });
     return listInvitesToGameResSchema.parse(data);
   }
@@ -303,7 +331,7 @@ export class Client {
   }) {
     await this.axios({
       method: "POST",
-      url: API_URL + "/game-invites/respond",
+      url: "/game-invites/respond",
       data: payload,
     });
     return;
@@ -314,7 +342,7 @@ export class Client {
   async logOut() {
     await this.axios({
       method: "POST",
-      url: API_URL + "/log-out",
+      url: "/log-out",
     });
   }
 
@@ -323,7 +351,7 @@ export class Client {
   async deleteOwnOrg() {
     await this.axios({
       method: "DELETE",
-      url: API_URL + "/orgs/delete-own",
+      url: "/orgs/delete-own",
       validateStatus: (s) => s === 204,
     });
   }
