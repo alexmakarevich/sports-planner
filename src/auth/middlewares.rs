@@ -59,7 +59,7 @@ pub async fn cookie_auth_middleware(
     .await
     // .map_err(handle_unexpected_db_err)?;
     .map_err(|err| {
-        error!("{}", err);
+        error!("Error in user cookie middleware: {}", err);
         // force-expire given bad cookie
 
         return (
@@ -123,7 +123,7 @@ pub async fn admin_cookie_auth_middleware(
     .await
     // .map_err(handle_unexpected_db_err)?;
     .map_err(|err| {
-        error!("{}", err);
+        error!("Error in admin cookie middleware: {}", err);
         // force-expire given bad cookie
 
         return (

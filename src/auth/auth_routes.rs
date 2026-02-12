@@ -217,6 +217,8 @@ pub async fn log_in(
     let session_id = Alphanumeric.sample_string(&mut rng(), 16);
     let cookie = Cookie::build(("session_id", session_id.clone()))
         .secure(true)
+        // .domain("localhost")
+        .path("/")
         .http_only(true)
         .same_site(SameSite::Strict)
         .expires(OffsetDateTime::now_utc() + Duration::days(7));
