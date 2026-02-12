@@ -25,7 +25,7 @@ mod utils;
 use crate::{
     auth::{
         auth_routes::{log_in, log_out, sign_up_via_invite, sign_up_with_new_club},
-        middlewares::{admin_cookie_auth_middleware, cookie_auth_middleware},
+        middlewares::cookie_auth_middleware,
         roles::{assign_role, list_own_role_assignments, list_role_assignments, unassign_role},
     },
     entities::{
@@ -148,13 +148,13 @@ async fn main() {
                     cookie_auth_middleware,
                 )),
             )
-            .nest(
-                "/admin",
-                protected_api_routes(state.clone()).layer(middleware::from_fn_with_state(
-                    state.clone(),
-                    admin_cookie_auth_middleware,
-                )),
-            )
+            // .nest(
+            //     "/admin",
+            //     protected_api_routes(state.clone()).layer(middleware::from_fn_with_state(
+            //         state.clone(),
+            //         admin_cookie_auth_middleware,
+            //     )),
+            // )
             .nest("/auth", unprotected_api_routes(state.clone()))
             .with_state(state)
     }

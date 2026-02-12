@@ -12,7 +12,6 @@ describe(__filename, () => {
       cookie,
       ownId,
       testId,
-      isGlobalAdmin: true,
     });
   });
 

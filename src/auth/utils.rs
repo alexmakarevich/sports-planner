@@ -1,4 +1,4 @@
-use crate::auth::roles::Role;
+use crate::auth::roles::{GlobalRole, Role};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,6 +7,7 @@ pub struct AuthContext {
     pub session_id: String,
     pub club_id: String,
     pub roles: Vec<Role>,
+    pub global_roles: Vec<GlobalRole>,
 }
 
 // TODO: IMPORTANT! hash passwords

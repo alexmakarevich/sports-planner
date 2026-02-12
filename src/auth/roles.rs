@@ -36,11 +36,27 @@ pub enum Role {
     Player,
 }
 
+// hardcoding roles, since they shouldn't be adjustable in the UI
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, Display, EnumString)]
+#[sqlx(type_name = "global_roles", rename_all = "snake_case")] // must match the Postgres type name
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum GlobalRole {
+    // for now this is only to give full access to global admins. might consider other uses later
+    Admin,
+
+    User,
+}
+
 pub fn check_user_roles(auth_ctx: &AuthContext, role_whitelist: &[Role]) -> Result<(), Response> {
     debug!(
         "ROLE CHECK, expected {:?} - received {:?}",
         role_whitelist, auth_ctx.roles
     );
+    if auth_ctx.global_roles.contains(&GlobalRole::Admin) {
+        debug!("GLOBAL ADMIN - ACCESS ALLOWED");
+        return Ok(());
+    }
     let roles = &auth_ctx.roles;
     for r in roles {
         if role_whitelist.contains(&r) {

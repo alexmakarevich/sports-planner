@@ -48,10 +48,10 @@ describe(__filename, () => {
     console.log(conductorCookie);
     expect(conductorCookie.slice(0, 11)).toEqual("session_id=");
     expect(conductorCookie.slice(11, 27)).not.toMatch(";");
-    expect(conductorCookie.slice(27, 72)).toEqual(
-      "; HttpOnly; SameSite=Strict; Secure; Expires=",
+    expect(conductorCookie.slice(27, 80)).toEqual(
+      "; HttpOnly; SameSite=Strict; Secure; Path=/; Expires=",
     );
-    const expirationString = conductorCookie.slice(72);
+    const expirationString = conductorCookie.slice(80);
 
     const expirationDate = DateTime.fromRFC2822(expirationString);
 
@@ -67,7 +67,6 @@ describe(__filename, () => {
       cookie: conductorCookie,
       ownId,
       testId,
-      isGlobalAdmin: true,
     });
 
     await client.listTeams();

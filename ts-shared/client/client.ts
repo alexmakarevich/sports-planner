@@ -47,15 +47,13 @@ export class Client {
     cookie,
     API_URL,
     kind,
-    isGlobalAdmin,
   }: {
     cookie: string;
     API_URL: string;
     kind: ClientKind;
-    isGlobalAdmin?: boolean;
   }) {
     this.cookie = cookie;
-    const protectedPrefix = isGlobalAdmin ? "/admin" : "/user";
+    const protectedPrefix = "/user";
     const baseURL = API_URL + protectedPrefix;
     this.kind = kind;
     this.allCookies = [this.cookie];
